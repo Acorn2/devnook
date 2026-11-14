@@ -9,14 +9,17 @@
 - 创建 annotated tag `v0.1.0`，指向通过远端 CI 的源码 `4225ba51f0f91274f9a62e863c0aac40a74e5bb0`。发布 `DevNook v0.1.0` 并标为 Latest，附中英文说明；上传固定输出 DMG 与 SHA256SUMS，未重打包或覆盖正在使用的应用。
 - `.app` 14,911,803 字节，DMG 4,695,106 字节（4.70 MB），Apple Silicon / macOS 12+，ad-hoc 签名、未 Developer ID 签名或 Apple 公证。发布说明如实记录平台、签名、校验与使用入口，不将编译模式等同于公证。
 - 公开资产重新下载后确认大小、字节摘要与本地文件一致，GitHub 资产摘要也一致；SHA-256 为 `307618b4cdc418ab43d8dd818eb1205c8d69d25d6cce397e430f0e15ed9a2cc7`。随后更新 `site/release.json` 的公开状态、两版 README 下载入口与分发说明。
-- GitHub Pages 已通过 API 启用 `workflow` 构建，HTTPS 强制开启。保留工作流仅手动触发；发布配置进入 main 后再运行该工作流。
+- GitHub Pages 已通过 API 启用 `workflow` 构建，HTTPS 强制开启。发布配置进入 main 后手动运行工作流，保留后续仅手动发布的规则。
 
 ### 实际验证
 
 - 既有源码的 GitHub CI `43587477959` 已成功，包含 macOS 检查、测试、CLI 与原生构建。
 - 最新本地 `.app` 的 `codesign --verify --strict --deep`、DMG 的 `hdiutil verify` 通过，Info.plist 为版本 0.1.0 / 最低系统 12.0；DMG 与 SHA256SUMS 的公开下载及 GitHub digest 全部核对一致。
 - 公开状态更新后 `pnpm site:build`、`pnpm site:check`（3 项发布状态测试、66 个站点引用）和修改文档 / 清单的 Prettier 检查通过；两语言页面均包含准确 DMG 地址与 SHA-256，无未发布提示。README 原有命令代码块逐字保持，60 处本地文件引用有效，`git diff --check` 通过。
-- 本轮不修改业务实现、CI/CD 文件或本机服务配置；检查记录和临时 CLI 位于 `.tmp/github-release-20261114/`，不进入提交。线上部署结果完成后另行补记。
+- 官网部署工作流 [43589081590](https://github.com/Acorn2/devnook/actions/runs/43589081590) 的 build / deploy 均成功，部署源码为 `ec5ba5293b4c694c2d6a899aab51f7453559f5cc`。中文首页与 `/en/` 均返回 HTTP 200，HTML 与本地生成结果逐字节一致；20 张功能截图、Logo、CSS 和两个 JS 共 24 项静态资源全部返回 HTTP 200。
+- 官网可访问后，保存并读回 About Website `https://acorn2.github.io/devnook/`、实际介绍和 13 个 Topics。Release latest 接口返回 v0.1.0、非草稿 / 非预发布及两个资产；双语 README 增加已上线官网入口。
+- 比较任务前后只读进程信息：Core 65870、runner 95832、服务 95836 / 95880 的 PID / PGID / 启动时间与可执行路径一致。本轮不修改业务实现、CI/CD 文件或本机服务配置，不停止、重启现有后台或服务。
+- 检查记录和临时 CLI 位于 `.tmp/github-release-20261114/`，不进入提交。线上采用 CLI / API / HTTP 验证，未再调用已停止的电脑操作会话；没有重复浏览器布局验收，旧 macOS / Intel 与公证状态仍遵循发布说明的限制。
 
 ## GitHub 首次提交前核查（2026-11-14）
 

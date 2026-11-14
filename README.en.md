@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="https://acorn2.github.io/devnook/en/">Website</a> ·
   <a href="#features">What it does</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#cli-and-ai-assistants">CLI / MCP</a> ·

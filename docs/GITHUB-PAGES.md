@@ -8,6 +8,8 @@
 
 此地址只有在仓库内容推送、Pages 设置和部署完成后才可用。本地构建不会自动发布。
 
+当前官网已完成首次部署：[中文](https://acorn2.github.io/devnook/) / [English](https://acorn2.github.io/devnook/en/)。两条路径与全部站点静态资源均已通过公开 HTTP 检查；About 的 Website 指向中文首页。后续内容更新仍需手动运行发布工作流。
+
 ## 本地构建与检查
 
 ```sh

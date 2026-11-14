@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="https://acorn2.github.io/devnook/">官网</a> ·
   <a href="#核心功能">能做什么</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#cli-与-ai-助手">CLI / MCP</a> ·
