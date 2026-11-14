@@ -1,5 +1,23 @@
 # DevNook 实施记录
 
+## v0.1.0 Release 与官网公开发布（2026-11-14）
+
+用户明确授权通过 GitHub CLI / API 部署官网、配置 About / Topics，并发布 v0.1.0、上传最新 DMG 与校验文件；保留现有后台和服务。
+
+- 从 GitHub 官方 Release 下载 arm64 CLI 2.104.0 至忽略目录，校验官方 SHA-256 后使用。设备登录由用户在 Chrome 完成，确认账号为 Acorn2；认证由系统凭据存储维护，未将 Token 写入项目或 hosts 配置。
+- 保存英文仓库介绍和 13 个符合已实现能力的标签，不标注尚未支持的 Windows / Linux。官网链接在部署并确认可访问后再写入 About。
+- 创建 annotated tag `v0.1.0`，指向通过远端 CI 的源码 `4225ba51f0f91274f9a62e863c0aac40a74e5bb0`。发布 `DevNook v0.1.0` 并标为 Latest，附中英文说明；上传固定输出 DMG 与 SHA256SUMS，未重打包或覆盖正在使用的应用。
+- `.app` 14,911,803 字节，DMG 4,695,106 字节（4.70 MB），Apple Silicon / macOS 12+，ad-hoc 签名、未 Developer ID 签名或 Apple 公证。发布说明如实记录平台、签名、校验与使用入口，不将编译模式等同于公证。
+- 公开资产重新下载后确认大小、字节摘要与本地文件一致，GitHub 资产摘要也一致；SHA-256 为 `307618b4cdc418ab43d8dd818eb1205c8d69d25d6cce397e430f0e15ed9a2cc7`。随后更新 `site/release.json` 的公开状态、两版 README 下载入口与分发说明。
+- GitHub Pages 已通过 API 启用 `workflow` 构建，HTTPS 强制开启。保留工作流仅手动触发；发布配置进入 main 后再运行该工作流。
+
+### 实际验证
+
+- 既有源码的 GitHub CI `43587477959` 已成功，包含 macOS 检查、测试、CLI 与原生构建。
+- 最新本地 `.app` 的 `codesign --verify --strict --deep`、DMG 的 `hdiutil verify` 通过，Info.plist 为版本 0.1.0 / 最低系统 12.0；DMG 与 SHA256SUMS 的公开下载及 GitHub digest 全部核对一致。
+- 公开状态更新后 `pnpm site:build`、`pnpm site:check`（3 项发布状态测试、66 个站点引用）和修改文档 / 清单的 Prettier 检查通过；两语言页面均包含准确 DMG 地址与 SHA-256，无未发布提示。README 原有命令代码块逐字保持，60 处本地文件引用有效，`git diff --check` 通过。
+- 本轮不修改业务实现、CI/CD 文件或本机服务配置；检查记录和临时 CLI 位于 `.tmp/github-release-20261114/`，不进入提交。线上部署结果完成后另行补记。
+
 ## GitHub 首次提交前核查（2026-11-14）
 
 用户授权：核查当前项目，通过后提交并推送至 `Acorn2/devnook`。本轮没有发布 Release 或安装包。

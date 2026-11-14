@@ -77,6 +77,8 @@ shasum -a 256 -c SHA256SUMS
 
 该次链接优化与符号裁剪使 Release 主程序比默认 Release 基线减少约 39.2%，初始 Release 应用比原 Debug 包减少约 77%。这些是当时产物的历史比较，不作为后续包的固定体积承诺。
 
-同日确认内折角 N 图标后重新构建的当前本地候选：`.app` 为 14,911,803 字节（14.91 MB），DMG 为 4,695,106 字节（4.70 MB），仍为版本 0.1.0 / Apple Silicon / ad-hoc，尚未公证或公开发布。完整尺寸 ICNS 与 PNG 从同一 SVG 导出，macOS 打包配置优先使用 ICNS。实际体积、校验和与发布状态已更新至 `site/release.json`；DMG 与安装后的应用采用不同体积口径，未来版本以重新构建结果为准。
+同日确认内折角 N 图标后重新构建的 v0.1.0：`.app` 为 14,911,803 字节（14.91 MB），DMG 为 4,695,106 字节（4.70 MB），目标为 Apple Silicon / macOS 12+，采用 ad-hoc 签名，尚未公证。该产物已通过 [GitHub Release v0.1.0](https://github.com/Acorn2/devnook/releases/tag/v0.1.0) 公开分发，DMG 与 `SHA256SUMS` 均已从公开下载地址重新校验。版本标签对应源码 `4225ba51f0f91274f9a62e863c0aac40a74e5bb0`，中英文发布说明保存在 [v0.1.0.md](releases/v0.1.0.md)。
+
+完整尺寸 ICNS 与 PNG 从同一 SVG 导出，macOS 打包配置优先使用 ICNS。实际体积、校验和与公开状态已更新至 `site/release.json`；DMG 与安装后的应用采用不同体积口径，未来版本以重新构建结果为准。
 
 官网部署见 [GitHub Pages](GITHUB-PAGES.md)。

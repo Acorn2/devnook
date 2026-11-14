@@ -4,7 +4,7 @@
 
 - 中文默认路径：`/devnook/`
 - 英文路径：`/devnook/en/`
-- 预期公开地址：`https://acorn2.github.io/devnook/`
+- 官网地址：`https://acorn2.github.io/devnook/`
 
 此地址只有在仓库内容推送、Pages 设置和部署完成后才可用。本地构建不会自动发布。
 
@@ -50,7 +50,9 @@ pnpm site:preview
 
 ## 下载状态
 
-本地 DMG 的存在不代表已公开发布。`site/release.json` 默认 `published: false`，展示测得的体积与签名状态，并提供源码构建入口。
+本地 DMG 的存在不代表已公开发布。`record-release.mjs` 登记本地候选时使用 `published: false`，展示测得的体积与签名状态，并提供源码构建入口。
+
+当前 v0.1.0 已在 GitHub Releases 公开，两个资产经过公开下载校验后，`site/release.json` 已设置为 `published: true` 并填写准确的 DMG 地址；官网使用真实下载入口，继续如实标注 ad-hoc / 未公证状态。
 
 DMG 应存放在 GitHub Releases。完成上传并核对公开文件后，按 [Release 分发说明](RELEASING.md)填写准确 URL，将 `published` 改为 `true`，再部署官网。不要仅为显示下载按钮而更改状态，也不要把 ad-hoc 签名写成已通过 Apple 公证。
 
@@ -58,13 +60,13 @@ DMG 应存放在 GitHub Releases。完成上传并核对公开文件后，按 [R
 
 网站部署完成后，可将 GitHub 仓库侧栏的 Website 设置为已验证可访问的 Pages 地址。Description 建议：
 
-> Local development workspace for macOS. Discover projects, manage dev services and logs, inspect ports, and share the same workspace with CLI and MCP. Built with Tauri and Rust.
+> Local project and dev service manager for macOS. Discover projects, open editors, run services, and inspect ports and logs. Built with Tauri and Rust, with CLI and MCP support.
 
 Topics 可按实际能力填写：
 
 ```text
 desktop-app developer-tools local-development macos dev-server
-process-manager mcp mcp-server rust tauri react typescript
+process-manager mcp mcp-server model-context-protocol rust tauri react typescript
 ```
 
 这些字段需要在仓库设置中单独保存；本地文件不会自动修改远端 About、Topics 或 Pages 设置。

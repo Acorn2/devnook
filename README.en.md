@@ -20,7 +20,7 @@
 
 **Find projects. Run services. Trace ports.** DevNook brings code folders, preferred editors, launch configurations, and runtime state into one macOS desktop app. Import existing projects, confirm frontend and backend starts, read logs, and trace an occupied port to its process and directory.
 
-[Build and run from source](#quick-start) for now. A public Release installer is not yet available.
+[Download for macOS](https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_aarch64.dmg) · [v0.1.0 release notes and checksums](https://github.com/Acorn2/devnook/releases/tag/v0.1.0) · [Build from source](#quick-start)
 
 If you work across several local projects, start with these tasks:
 
@@ -101,7 +101,9 @@ Default scans follow project features and module declarations. For nonstandard l
 
 ## Quick start
 
-Build from source to use DevNook. The target platform is **macOS 12+**. Development and native validation focus on Apple Silicon; Intel and physical macOS 12 devices still need verification. Windows / Linux do not currently support the full native process and application management feature set.
+To use the desktop app, download the Apple Silicon DMG from [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest), open it, and drag DevNook into Applications. The current installer is ad-hoc signed and has not completed Developer ID signing or Apple notarization. macOS may block the first launch; see the [v0.1.0 release notes](docs/releases/v0.1.0.md) for signing details and checksum verification.
+
+The steps below build from source. The target platform is **macOS 12+**. Development and native validation focus on Apple Silicon; Intel and physical macOS 12 devices still need verification. Windows / Linux do not currently support the full native process and application management feature set.
 
 ### 1. Prerequisites
 
