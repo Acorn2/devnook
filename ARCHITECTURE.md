@@ -2,6 +2,8 @@
 
 ## 官网与发布产物
 
+macOS 架构发行复用同一 Core / CLI / GUI 实现。Intel 使用 `x86_64-apple-darwin` 独立目标目录，Apple Silicon 包保持独立；发布清单以同一版本的构建列表记录每个架构，下载地址必须同时匹配版本与架构，尚未公开的构建不能展示下载按钮。构建登记只更新目标架构，不重置其他架构的已发布事实。构建、校验和与 Core / CLI 隔离测试不依赖用户真实数据库；正式包的原生窗口启动检查只读连接已有 Core，保留现有运行。
+
 `site/content.mjs` 的双语产品内容、演示截图与 `site/release.json` 的已校验产物信息，经 Node 静态生成器输出到 `dist/site/`。用户访问中文首页或英文路径，查看截图、说明和获取入口；未公开的产物只提供源码构建链接。浏览器交互仅处理展示、导航与复制配置，不连接 Core / UDS，不读取真实项目或执行命令。
 
 GitHub Pages workflow 只构建、检查和部署静态目录，DMG 单独作为 GitHub Release 资产维护。版本、公开状态、签名与公证状态分开记录；下载地址必须匹配当前仓库和版本。Release profile 使用 thin LTO、单 codegen unit 和符号裁剪，保留默认速度优化与 panic unwind；不改变服务生命周期或存储。

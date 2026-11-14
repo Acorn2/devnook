@@ -3,14 +3,42 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { validateRelease } from '../site/template.mjs';
+import { architectures, recordBuild, checksumFilename } from '../site/release.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-const app = join(root, 'target/release/bundle/macos/DevNook.app');
-const directory = join(root, 'target/release/bundle/dmg');
-const filename = `DevNook_${packageJson.version}_aarch64.dmg`;
+const args = process.argv.slice(2);
+if (args.length && (args.length !== 2 || args[0] !== '--target'))
+  throw new Error('Usage: node scripts/record-release.mjs [--target <macOS Rust target>]');
+const target = args[1];
+const arch = target
+  ? Object.keys(architectures).find((key) => architectures[key].target === target)
+  : process.arch === 'arm64'
+    ? 'aarch64'
+    : process.arch === 'x64'
+      ? 'x86_64'
+      : null;
+if (process.platform !== 'darwin' || !arch) throw new Error('Unsupported macOS build target');
+const output = target ? join(root, 'target', target, 'release') : join(root, 'target/release');
+const app = join(output, 'bundle/macos/DevNook.app');
+const directory = join(output, 'bundle/dmg');
+const filename = `DevNook_${packageJson.version}_${architectures[arch].filenameArch}.dmg`;
 const dmg = join(directory, filename);
+const current = JSON.parse(await readFile(join(root, 'site/release.json'), 'utf8'));
+const binary = join(app, 'Contents/MacOS/devnook-desktop');
+const actualArch = execFileSync('/usr/bin/lipo', ['-archs', binary], { encoding: 'utf8' }).trim();
+if (actualArch !== architectures[arch].macho) throw new Error('Application architecture mismatch');
+for (const [key, expected] of [
+  ['CFBundleShortVersionString', packageJson.version],
+  ['LSMinimumSystemVersion', '12.0'],
+]) {
+  const value = execFileSync(
+    '/usr/libexec/PlistBuddy',
+    ['-c', `Print :${key}`, join(app, 'Contents/Info.plist')],
+    { encoding: 'utf8' },
+  ).trim();
+  if (value !== expected) throw new Error(`Application ${key} mismatch`);
+}
 execFileSync('/usr/bin/codesign', ['--verify', '--strict', '--deep', app], { stdio: 'inherit' });
 // codesign writes signature details to stderr. Never infer notarization from a signature.
 const signatureProbe = spawnSync('/usr/bin/codesign', ['-dv', app], { encoding: 'utf8' });
@@ -28,9 +56,8 @@ async function bytes(path) {
 const sha256 = createHash('sha256')
   .update(await readFile(dmg))
   .digest('hex');
-const manifest = validateRelease({
-  version: packageJson.version,
-  arch: 'aarch64',
+const manifest = recordBuild(current, packageJson.version, {
+  arch,
   minMacOS: '12.0',
   published: false,
   url: null,
@@ -41,5 +68,5 @@ const manifest = validateRelease({
   notarized: false,
 });
 await writeFile(join(root, 'site/release.json'), JSON.stringify(manifest, null, 2) + '\n');
-await writeFile(join(directory, 'SHA256SUMS'), `${sha256}  ${filename}\n`);
-console.log(`Recorded local Release candidate, not a public download: ${filename}`);
+await writeFile(join(directory, checksumFilename(arch)), `${sha256}  ${filename}\n`);
+console.log(`Recorded local ${arch} Release candidate, not a public download: ${filename}`);

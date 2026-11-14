@@ -1,5 +1,32 @@
 # DevNook 实施记录
 
+## Intel Mac 发行与有条件的后续计划（2026-11-14）
+
+用户确认本次补齐 Intel DMG 并验证；未来 Windows 等较大投入根据开源项目的实际采用、反馈和维护资源评估。
+
+- 在项目隔离 Rust 工具链中安装 x86_64 标准库，使用已有 Clang / SDK 和 Tauri 构建独立 Intel Release。固定路径为 `target/x86_64-apple-darwin/release/bundle/`，DMG 沿用 Tauri 的 `_x64.dmg` 名称，不覆盖现有 arm64 包。
+- Intel `.app` 为 15,962,779 字节，DMG 为 5,182,582 字节（5.18 MB），SHA-256 为 `f1a31777918ed089878d95c13909e05bbe3f08e6e10389ca797ff2fb60c136ad`；macOS 12.0 / x86_64 / ad-hoc / 未公证。
+- 发布清单改为同版本的逐架构 builds；独立纯函数校验版本、架构、唯一性、签名与下载文件名，登记候选保留另一架构的公开事实。官网复用原下载区样式，分别展示 Apple Silicon / Intel Mac 的体积、下载和 SHA-256；未公开构建保持源码入口。
+- 向既有 v0.1.0 追加 Intel DMG 和 `SHA256SUMS-x86_64`，公开下载逐字节摘要与本地及 GitHub digest 一致。原 ARM 资产的 ID / 大小 / 摘要完全不变，标签不改写；构建时 apps / Core / CLI 业务源码与既有 v0.1.0 一致，前端构建记录仍为 `index-CmHPNo5Y.js`。
+- 更新中英文 README 的双架构入口与候选计划：Windows、Linux、更深 IDE 集成和 macOS 发行兼容性。计划无固定排期，不设置 Star 阈值，依据实际采用、可复现反馈、社区贡献和维护资源决定。两版原有 7 个命令代码块保持，链接和锚点检查通过。
+
+### 实际验证
+
+| 检查 | 结果 |
+| --- | --- |
+| Intel 构建 | `MACOSX_DEPLOYMENT_TARGET=12.0 pnpm tauri build --target x86_64-apple-darwin --no-bundle` 及独立 app / DMG bundle 成功，无新增业务依赖或协议 / 数据库变更 |
+| 包完整性 | `lipo` / `file` 确认为 x86_64，`vtool` 最低系统 12.0；codesign strict / deep 和 hdiutil verify 通过。只读挂载后主程序、Info.plist、ICNS 与固定输出完全一致，Applications 链接存在，镜像正常卸载 |
+| x86_64 全量测试 | Rosetta 下 `cargo test --release --workspace --target x86_64-apple-darwin --locked`：79 passed、0 failed、5 ignored（内部 fixture） |
+| 首次失败与复核 | 首次与打包并行时，子进程 PID 文件读取存在启动竞态，改为等待实际标记并保留身份 / 停止断言，未修改业务就绪定义。Python 项首次在测试配置的 4 秒内未就绪；独立复核和完整回归通过，未调整生产或测试超时。ARM 上对应子进程测试也通过 |
+| 原生窗口 | localhost 新增不参与 Start All 的 `intel-desktop-qa`。确认 Intel GUI PID 13588、窗口 131677 为 1280×800；screenshot 回读已有项目和后台已连接，仅作只读检查，随后只停止本轮 GUI |
+| 数据目录修正 | Release GUI 不采用 DEVNOOK_DATA_DIR，该变量仅 Debug GUI 生效。原先“GUI 已隔离”的假设已纠正，正式窗口只读连接原 Core；未导入、保存配置或操作用户服务。业务回归全部使用临时 Core / CLI 数据 |
+| 站点与记录 | `pnpm site:build` / `pnpm site:check` 通过，8 项发布测试和 66 个站点引用有效；覆盖双架构、混合公开状态、错误链接、重复架构和候选合并。Rust 格式、修改文档及站点的 Prettier、git diff 空白检查通过 |
+| 响应式与主题 | 中英 × 浅暗 × 320 / 375 / 414 / 768 / 1024 / 1280 / 1440px 共 28 项通过。展开两个 SHA-256 后仍无横向溢出，两条下载链接准确、按钮高度至少 44px、截图解码正常；桌面和手机的四张代表性渲染已回读。首次脚本等待未进入视口的懒加载图导致超时，改为仅在验收页面触发 eager 后通过，不修改产品懒加载策略 |
+
+Core 65870、runner 95832、服务 95836 / 95880 的 PID / PGID / 启动时间和路径在本轮原生检查后不变，既有 site-preview 保持。Intel 硬件、旧 macOS 真机与 Apple 公证仍未验收，不用 Rosetta 结果替代。原生截图仅保留在本机临时目录，不进入公开截图资源。
+
+工作区出现另一路服务页界面改动，本轮不覆盖或提交这些内容；Intel 包在其出现前已构建。检查日志、公开资产副本和网页验收记录位于 `.tmp/intel-macos-20261114/`。线上部署结果完成后补记。
+
 ## v0.1.0 Release 与官网公开发布（2026-11-14）
 
 用户明确授权通过 GitHub CLI / API 部署官网、配置 About / Topics，并发布 v0.1.0、上传最新 DMG 与校验文件；保留现有后台和服务。

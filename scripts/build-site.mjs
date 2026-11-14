@@ -1,7 +1,8 @@
 import { mkdir, readFile, writeFile, cp } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, join } from 'node:path';
-import { renderPage, validateRelease } from '../site/template.mjs';
+import { renderPage } from '../site/template.mjs';
+import { validateRelease } from '../site/release.mjs';
 import { origin, basePath } from '../site/content.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));

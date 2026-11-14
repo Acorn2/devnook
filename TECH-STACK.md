@@ -1,5 +1,7 @@
 # DevNook 技术栈
 
+Intel Mac 使用项目隔离 Rust 工具链的 `x86_64-apple-darwin` 标准库、现有 Apple Clang / macOS SDK 与 Tauri 跨架构打包；目标目录与 arm64 分离。x86_64 程序在当前 Apple Silicon 主机上借助已存在的 Rosetta 验证，平台适配仍由原有 macOS API 承担，无新增业务依赖、协议或数据库迁移。
+
 官网采用原生 HTML / CSS / JavaScript 与 Node 标准库静态生成，不新增 npm 包、前端框架或运行时 API。`site/` 同源提供中英文 HTML、语义主题和自有图片；支持 GitHub Pages 项目子路径、移动导航、减少动态效果和存储 / 剪贴板失败降级。发布清单由本地 Release 元数据生成，并在部署前校验；GitHub Actions 的 Pages 官方 Action 固定 commit。Release 使用 thin LTO、`codegen-units = 1` 与 `strip = "symbols"`，沿用默认速度优化和 panic unwind。
 
 - 中英界面采用集中 TypeScript 词典、React 语言订阅及 localStorage，无新增 npm 依赖。macOS 首选语言使用已有锁定版本 `objc2-foundation` 0.3.2 的 `NSLocale.preferredLanguages`，只在桌面适配层读取，不调用 Shell 或改动 Core。

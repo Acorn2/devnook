@@ -80,7 +80,7 @@ export const content = {
     faqs: [
       [
         '支持哪些系统？',
-        '当前面向 macOS 12+。本次 Release 构建适用于 Apple Silicon；Intel、Windows 和 Linux 安装包尚未提供。Intel 与 macOS 12 真机仍需补充验证。',
+        '当前面向 macOS 12+，分别提供 Apple Silicon 与 Intel Mac 安装包。Intel 构建已通过 Rosetta 测试与原生窗口启动检查；Intel 和 macOS 12 真机仍需补充验证。Windows / Linux 是否推进，将结合社区需求与维护资源评估。',
       ],
       [
         '扫描会修改或运行我的项目吗？',
@@ -118,7 +118,7 @@ export const content = {
     hash: 'SHA-256 校验值',
     appSize: '应用',
     dmgSize: 'DMG',
-    requirements: 'macOS 12+ · Apple Silicon · 简体中文 / English',
+    requirements: 'macOS 12+ · Apple Silicon / Intel Mac · 简体中文 / English',
     footer: '项目、服务与端口的本地开发工作台。',
     docs: '使用文档',
     license: 'MIT 许可证',
@@ -289,7 +289,7 @@ export const content = {
     faqs: [
       [
         'Which platforms are supported?',
-        'DevNook currently targets macOS 12+. This Release build supports Apple Silicon. Intel, Windows, and Linux installers are not available. Intel and physical macOS 12 devices still need verification.',
+        'DevNook targets macOS 12+ with separate Apple Silicon and Intel Mac installers. The Intel build has passed Rosetta tests and native window startup checks; Intel hardware and physical macOS 12 devices still need verification. Windows / Linux work will depend on community demand and maintainer capacity.',
       ],
       [
         'Will a scan change or run my project?',
@@ -327,7 +327,7 @@ export const content = {
     hash: 'SHA-256 checksum',
     appSize: 'App',
     dmgSize: 'DMG',
-    requirements: 'macOS 12+ · Apple Silicon · Simplified Chinese / English',
+    requirements: 'macOS 12+ · Apple Silicon / Intel Mac · Simplified Chinese / English',
     footer: 'A local workspace for projects, services, and ports.',
     docs: 'Documentation',
     license: 'MIT License',

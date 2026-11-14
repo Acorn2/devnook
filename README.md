@@ -16,12 +16,13 @@
   <a href="#快速开始">快速开始</a> ·
   <a href="#cli-与-ai-助手">CLI / MCP</a> ·
   <a href="#文档">文档</a> ·
+  <a href="#后续方向">后续方向</a> ·
   <a href="LICENSE">MIT License</a>
 </p>
 
 **找项目、开服务、查端口。** DevNook 把磁盘上的代码工程、常用编辑器、启动配置和运行状态放进一个桌面工作台。你可以导入已有项目，确认启动前后端服务，集中查看日志，或从占用端口找到对应进程和目录。
 
-[下载 macOS 安装包](https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_aarch64.dmg) · [v0.1.0 发布说明与校验文件](https://github.com/Acorn2/devnook/releases/tag/v0.1.0) · [从源码运行](#快速开始)
+[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_x64.dmg) · [v0.1.0 发布说明与校验文件](https://github.com/Acorn2/devnook/releases/tag/v0.1.0) · [从源码运行](#快速开始)
 
 如果你同时维护几个本地工程，可以从这些任务开始：
 
@@ -102,9 +103,9 @@ CLI 与可选的 MCP 接入共用桌面的本机后台、项目库、服务配�
 
 ## 快速开始
 
-直接使用可从 [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest) 下载 Apple Silicon DMG，打开后将 DevNook 拖入 Applications。当前安装包采用 ad-hoc 签名，尚未完成 Developer ID 签名或 Apple 公证；首次打开可能被 macOS 阻止，来源与校验说明见 [v0.1.0 发布说明](docs/releases/v0.1.0.md)。
+直接使用可从 [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest) 按芯片选择 Apple Silicon 或 Intel Mac DMG，打开后将 DevNook 拖入 Applications。当前安装包采用 ad-hoc 签名，尚未完成 Developer ID 签名或 Apple 公证；首次打开可能被 macOS 阻止，来源与校验说明见 [v0.1.0 发布说明](docs/releases/v0.1.0.md)。
 
-以下步骤用于从源码运行，目标平台为 **macOS 12+**。开发与原生验收以 Apple Silicon 为主，Intel 和 macOS 12 真机尚需补充验证；Windows / Linux 暂不支持完整的本机进程与应用管理能力。
+以下步骤用于从源码运行，目标平台为 **macOS 12+**，提供 Apple Silicon 与 Intel 两种构建。Intel 构建已通过 Apple Silicon 主机上的 Rosetta 测试与原生窗口启动检查，Intel 和 macOS 12 真机仍需补充验证。Windows / Linux 暂不提供安装包，后续方向见下方说明。
 
 ### 1. 准备开发环境
 
@@ -252,6 +253,19 @@ docs/                 使用说明、设计与开发记录
 | [服务识别边界](docs/service-eligibility-plan.md)                          | 服务、开发服务器与客户端的区分                 |
 | [架构](ARCHITECTURE.md) · [技术栈](TECH-STACK.md) · [界面设计](DESIGN.md) | 工程结构与设计约定                             |
 | [开发记录](docs/DEVELOPMENT-PLAN.md)                                      | 已实现功能、实际验证和已知限制                 |
+
+## 后续方向
+
+DevNook 当前优先打磨 macOS 上的项目与服务管理体验。后续是否扩展平台或投入较大功能，将结合项目的实际采用情况、社区反馈与贡献，以及可投入的维护资源决定。以下是候选方向，暂无固定排期。
+
+| 候选方向           | 评估重点                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| Windows 支持       | 适配原生进程身份、端口查询、开发应用与后台服务管理，再验证完整使用流程。           |
+| Linux 支持         | 根据实际用户需求，评估发行版、桌面环境与进程管理的适配范围。                       |
+| 更深入的 IDE 集成  | 探索 IntelliJ IDEA 等编辑器的项目与服务联动，优先解决已有用户的具体工作流问题。    |
+| macOS 发行与兼容性 | 持续收集 Intel 和旧 macOS 真机反馈，评估 Developer ID 签名、Apple 公证与升级体验。 |
+
+欢迎在 [Issues](https://github.com/Acorn2/devnook/issues) 中说明你的使用场景、平台和遇到的问题。实际使用反馈、可复现的案例与代码贡献会帮助确定优先级；Star 也可以表达你对项目的关注。
 
 ## 参与贡献
 

@@ -1,4 +1,5 @@
 import { content, repo, origin, basePath } from './content.mjs';
+import { validateRelease, architectures } from './release.mjs';
 
 export function escapeHtml(value) {
   return String(value).replace(
@@ -6,38 +7,6 @@ export function escapeHtml(value) {
     (character) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character],
   );
-}
-
-export function validateRelease(release) {
-  if (!/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(release.version))
-    throw new Error('Invalid release version');
-  if (release.arch !== 'aarch64' || release.minMacOS !== '12.0')
-    throw new Error('Unsupported release target');
-  if (typeof release.published !== 'boolean' || typeof release.notarized !== 'boolean')
-    throw new Error('Invalid release state');
-  if (!['ad-hoc', 'developer-id'].includes(release.signing))
-    throw new Error('Unknown signing state');
-  if (release.notarized && release.signing !== 'developer-id')
-    throw new Error('Notarization requires Developer ID signing');
-  const hasArtifact = release.dmgBytes !== null;
-  if (
-    hasArtifact &&
-    (!Number.isSafeInteger(release.dmgBytes) ||
-      release.dmgBytes <= 0 ||
-      !Number.isSafeInteger(release.appBytes) ||
-      release.appBytes <= 0 ||
-      !/^[a-f0-9]{64}$/.test(release.sha256))
-  )
-    throw new Error('Invalid artifact size or checksum');
-  if (!hasArtifact && (release.appBytes !== null || release.sha256 !== null))
-    throw new Error('Incomplete artifact metadata');
-  if (release.published) {
-    const expected = `${repo}/releases/download/v${release.version}/DevNook_${release.version}_aarch64.dmg`;
-    if (!hasArtifact || release.url !== expected)
-      throw new Error('Published releases require an exact GitHub asset URL and metadata');
-  } else if (release.url !== null)
-    throw new Error('Unpublished artifacts cannot have a download URL');
-  return release;
 }
 
 const arrow = '<span aria-hidden="true">↗</span>';
@@ -60,13 +29,17 @@ export function renderPage(locale, release) {
   const sourceUrl = `${readme}#${locale === 'zh' ? '快速开始' : 'quick-start'}`;
   const screenshot = (feature) =>
     `<figure class="feature-preview"><a data-image-link data-scene="${feature.scene}" href="${prefix}assets/${feature.scene}-dark-${locale}.png" target="_blank" rel="noopener" aria-label="${e(t.previewZoom)}"><img data-theme-image="${feature.scene}" data-prefix="${prefix}" src="${prefix}assets/${feature.scene}-dark-${locale}.png" width="1280" height="800" loading="lazy" alt="${e(feature.alt)}"></a><figcaption><span>${e(feature.caption)}</span><a class="preview-full" data-image-link data-scene="${feature.scene}" href="${prefix}assets/${feature.scene}-dark-${locale}.png" target="_blank" rel="noopener" aria-label="${e(t.previewZoom)}">${e(t.previewFull)} ${arrow}</a></figcaption></figure>`;
-  const hasArtifact = release.dmgBytes !== null;
   const mb = (bytes) => `${(bytes / 1_000_000).toFixed(2)} MB`;
-  const status = release.published
-    ? t.releasePublished
-    : hasArtifact
-      ? t.releaseLocal
-      : t.releasePending;
+  const renderBuild = (build) => {
+    const hasArtifact = build.dmgBytes !== null;
+    const label = architectures[build.arch].label;
+    const status = build.published
+      ? t.releasePublished
+      : hasArtifact
+        ? t.releaseLocal
+        : t.releasePending;
+    return `<div class="release-build" data-arch="${build.arch}"><div class="release-build-heading"><h3>${label}</h3><p class="release-state">${e(status)}</p></div>${hasArtifact ? `<dl class="release-sizes"><div><dt>${e(t.appSize)}</dt><dd>${mb(build.appBytes)}</dd></div><div><dt>${e(t.dmgSize)}</dt><dd>${mb(build.dmgBytes)}</dd></div></dl>` : ''}<a class="button primary release-action" href="${e(build.published ? build.url : sourceUrl)}"${build.published ? ' download' : ''}>${e(build.published ? t.download.replace('macOS', label) : t.buildSource)} <span aria-hidden="true">↓</span></a>${!build.published ? `<p class="release-note">${e(t.pendingNote)}</p>` : ''}<p class="release-note">${e(build.signing === 'developer-id' && build.notarized ? t.signedNote : t.unsignedNote)}</p>${hasArtifact ? `<details class="checksum"><summary>${e(t.hash)}</summary><code>${e(build.sha256)}</code></details>` : ''}</div>`;
+  };
   return `<!doctype html>
 <html lang="${t.lang}" data-locale="${locale}" data-theme="dark">
 <head>
@@ -130,7 +103,7 @@ export function renderPage(locale, release) {
 ./target/debug/devnook service list
 ./target/debug/devnook ports</code></pre><p>${e(t.cliNote)}</p></div><details class="mcp-example"><summary>${e(t.mcpSummary)}</summary><div class="code-panel"><div class="code-header"><span>${e(t.codeLabel)}</span><button id="copy-config" type="button" data-copy="${e(t.copy)}" data-copied="${e(t.copied)}" data-error="${e(t.copyFailed)}">${e(t.copy)}</button></div><pre><code id="mcp-config">${e(config)}</code></pre><p>${e(t.codeNote)}</p><span id="copy-status" class="sr-only" role="status" aria-live="polite"></span></div></details></div></div></section>
     <section class="questions container section" id="questions" aria-labelledby="questions-title"><div class="section-heading"><p class="eyebrow">${e(t.faqEyebrow)}</p><h2 id="questions-title">${e(t.faqTitle)}</h2></div><div class="faq-list">${t.faqs.map(([question, answer]) => `<details><summary>${e(question)}<span aria-hidden="true">+</span></summary><p>${e(answer)}</p></details>`).join('')}</div></section>
-    <section class="download-section container" id="download" aria-labelledby="download-title"><div class="download-copy"><p class="eyebrow">${e(t.downloadEyebrow)}</p><h2 id="download-title">${e(t.downloadTitle).replace('\n', '<br>')}</h2><p>${e(t.downloadIntro)}</p><p class="requirements">${e(t.requirements)}</p></div><div class="release-panel"><p class="release-state"><span class="status-dot" aria-hidden="true"></span>${e(status)} <span class="version">v${e(release.version)}</span></p>${hasArtifact ? `<dl class="release-sizes"><div><dt>${e(t.appSize)}</dt><dd>${mb(release.appBytes)}</dd></div><div><dt>${e(t.dmgSize)}</dt><dd>${mb(release.dmgBytes)}</dd></div></dl>` : ''}<a class="button primary release-action" href="${e(release.published ? release.url : sourceUrl)}"${release.published ? ' download' : ''}>${e(release.published ? t.download : t.buildSource)} <span aria-hidden="true">${release.published ? '↓' : '↗'}</span></a>${!release.published ? `<p class="release-note">${e(t.pendingNote)}</p>` : ''}<p class="release-note">${e(release.notarized ? t.signedNote : t.unsignedNote)}</p>${hasArtifact ? `<details class="checksum"><summary>${e(t.hash)}</summary><code>${e(release.sha256)}</code></details>` : ''}<a class="release-history" href="${repo}/releases">${e(t.releases)} ${arrow}</a></div></section>
+    <section class="download-section container" id="download" aria-labelledby="download-title"><div class="download-copy"><p class="eyebrow">${e(t.downloadEyebrow)}</p><h2 id="download-title">${e(t.downloadTitle).replace('\n', '<br>')}</h2><p>${e(t.downloadIntro)}</p><p class="requirements">${e(t.requirements)}</p></div><div class="release-panel"><p class="release-state">macOS <span class="version">v${e(release.version)}</span></p>${release.builds.map(renderBuild).join('')}<a class="release-history" href="${repo}/releases">${e(t.releases)} ${arrow}</a></div></section>
     <noscript><p class="container no-script">${e(t.noScript)}</p></noscript>
   </main>
   <footer class="site-footer container"><div><a class="brand" href="${prefix}"><img src="${prefix}assets/devnook.svg" width="32" height="32" alt=""><span>DevNook<span class="brand-dot">.</span></span></a><p>${e(t.footer)}</p></div><nav aria-label="Footer"><a href="${readme}">${e(t.docs)}</a><a href="${repo}/issues">${e(t.issues)}</a><a href="${repo}/blob/main/LICENSE">${e(t.license)}</a><a href="https://hreshhao.com/">${e(t.author)} ${arrow}</a></nav><p class="copyright">© 2026 Hresh · DevNook</p></footer>

@@ -16,12 +16,13 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#cli-and-ai-assistants">CLI / MCP</a> ·
   <a href="#documentation">Documentation</a> ·
+  <a href="#future-directions">Future directions</a> ·
   <a href="LICENSE">MIT License</a>
 </p>
 
 **Find projects. Run services. Trace ports.** DevNook brings code folders, preferred editors, launch configurations, and runtime state into one macOS desktop app. Import existing projects, confirm frontend and backend starts, read logs, and trace an occupied port to its process and directory.
 
-[Download for macOS](https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_aarch64.dmg) · [v0.1.0 release notes and checksums](https://github.com/Acorn2/devnook/releases/tag/v0.1.0) · [Build from source](#quick-start)
+[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_x64.dmg) · [v0.1.0 release notes and checksums](https://github.com/Acorn2/devnook/releases/tag/v0.1.0) · [Build from source](#quick-start)
 
 If you work across several local projects, start with these tasks:
 
@@ -102,9 +103,9 @@ Default scans follow project features and module declarations. For nonstandard l
 
 ## Quick start
 
-To use the desktop app, download the Apple Silicon DMG from [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest), open it, and drag DevNook into Applications. The current installer is ad-hoc signed and has not completed Developer ID signing or Apple notarization. macOS may block the first launch; see the [v0.1.0 release notes](docs/releases/v0.1.0.md) for signing details and checksum verification.
+To use the desktop app, choose the Apple Silicon or Intel Mac DMG from [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest), open it, and drag DevNook into Applications. The current installers are ad-hoc signed and have not completed Developer ID signing or Apple notarization. macOS may block the first launch; see the [v0.1.0 release notes](docs/releases/v0.1.0.md) for signing details and checksum verification.
 
-The steps below build from source. The target platform is **macOS 12+**. Development and native validation focus on Apple Silicon; Intel and physical macOS 12 devices still need verification. Windows / Linux do not currently support the full native process and application management feature set.
+The steps below build from source. The target platform is **macOS 12+**, with separate Apple Silicon and Intel builds. The Intel build has passed Rosetta tests and native window startup checks on an Apple Silicon host; Intel hardware and physical macOS 12 devices still need verification. Windows / Linux installers are not available; see the future directions below.
 
 ### 1. Prerequisites
 
@@ -254,6 +255,19 @@ The following detailed guides are currently in Chinese. Both README versions cov
 | [Service eligibility](docs/service-eligibility-plan.md)                                       | Distinguishing services, development servers, and clients                         |
 | [Architecture](ARCHITECTURE.md) · [Tech stack](TECH-STACK.md) · [Interface design](DESIGN.md) | Engineering structure and design conventions                                      |
 | [Development record](docs/DEVELOPMENT-PLAN.md)                                                | Implemented features, recorded validation, and known limitations                  |
+
+## Future directions
+
+DevNook currently focuses on improving local project and service management on macOS. Investment in additional platforms and larger features will depend on sustained adoption, community feedback and contributions, and maintainer capacity. These are candidate directions with no fixed schedule.
+
+| Candidate direction                  | What needs evaluation                                                                                                             |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Windows support                      | Native process identity, port inspection, development apps, and background service management, followed by end-to-end validation. |
+| Linux support                        | The supported distributions, desktop environments, and process management behavior, based on actual user demand.                  |
+| Deeper IDE integration               | Project and service workflows in editors such as IntelliJ IDEA, guided by concrete problems from existing users.                  |
+| macOS distribution and compatibility | Feedback from Intel and older macOS hardware, Developer ID signing, Apple notarization, and upgrade experience.                   |
+
+Share your workflow, platform, and problems in [Issues](https://github.com/Acorn2/devnook/issues). Real usage feedback, reproducible examples, and code contributions help set priorities; stars are another way to express interest in the project.
 
 ## Contributing
 

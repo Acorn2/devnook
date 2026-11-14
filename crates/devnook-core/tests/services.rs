@@ -901,7 +901,8 @@ fn descendants_survive_launcher_exit_and_normal_stop_cleans_the_group() {
     let d = h.save(d);
     h.start(&d);
     let run = h.state(&d.id, ServiceState::Ready);
-    let pid: u32 = fs::read_to_string(file).unwrap().parse().unwrap();
+    // Process readiness precedes the runtime's child marker on slower startup paths.
+    let pid: u32 = wait(|| fs::read_to_string(&file).ok()?.parse().ok());
     assert!(process::identity(pid).unwrap().alive);
     h.stopped(&d.id);
     assert!(!process::identity(pid).is_some_and(|p| p.alive));

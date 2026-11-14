@@ -1,6 +1,6 @@
 # Release 构建与分发
 
-本文介绍 macOS Apple Silicon 的本地 Release 构建、校验与官网发布信息。公开分发的版本号、资产名和 SHA-256 应与实际产物对应。
+本文介绍 macOS Apple Silicon 与 Intel 的 Release 构建、校验与官网发布信息。公开分发的版本号、架构、资产名和 SHA-256 应与实际产物对应。
 
 ## 构建配置
 
@@ -17,7 +17,7 @@ node scripts/record-release.mjs
 
 这里的 `APPLE_SIGNING_IDENTITY=-` 生成本机 ad-hoc 签名；`CI=true` 跳过依赖 Finder 交互的 DMG 布局步骤。镜像包含应用与 Applications 入口，支持拖入安装。
 
-固定输出：
+Apple Silicon 本机默认构建的固定输出：
 
 ```text
 target/release/bundle/macos/DevNook.app
@@ -25,7 +25,20 @@ target/release/bundle/dmg/DevNook_0.1.0_aarch64.dmg
 target/release/bundle/dmg/SHA256SUMS
 ```
 
-`record-release.mjs` 核对包签名、计算实际体积及 SHA-256，并将结果写入 `site/release.json`。该脚本仅登记 ad-hoc 本地候选，设为 `published: false`、`url: null`，不会上传文件或创建 GitHub Release。版本号必须与根目录 `package.json`、Cargo workspace 和 Tauri 配置一致。
+`record-release.mjs` 核对 Mach-O 架构、应用版本、最低系统及包签名，计算实际体积与 SHA-256，并更新 `site/release.json` 中目标架构的 build。该脚本仅登记 ad-hoc 本地候选，设为 `published: false`、`url: null`，不会上传文件或创建 GitHub Release；同版本的另一架构保持原状，新版本不会继承旧版资产。版本号必须与根目录 `package.json`、Cargo workspace 和 Tauri 配置一致。
+
+### Intel Mac 构建
+
+在 macOS 上安装 x86_64 标准库，使用现有 Apple Clang / macOS SDK 交叉编译：
+
+```sh
+sh scripts/rust-local.sh rustup target add x86_64-apple-darwin
+MACOSX_DEPLOYMENT_TARGET=12.0 pnpm tauri build --target x86_64-apple-darwin --no-bundle
+APPLE_SIGNING_IDENTITY=- CI=true pnpm tauri bundle --target x86_64-apple-darwin --bundles app,dmg
+node scripts/record-release.mjs --target x86_64-apple-darwin
+```
+
+固定输出为 `target/x86_64-apple-darwin/release/bundle/` 下的 `macos/DevNook.app`、`dmg/DevNook_0.1.0_x64.dmg` 与 `dmg/SHA256SUMS-x86_64`。Rust target / 清单架构使用 `x86_64`，DMG 文件名沿用 Tauri 的 `x64`。显式 `--target aarch64-apple-darwin` 同样使用独立 target 目录；不指定 target 则从本机架构和默认 `target/release/` 登记。
 
 ## 校验
 
@@ -39,6 +52,8 @@ shasum -a 256 -c SHA256SUMS
 
 还应只读挂载 DMG，核对包内应用与构建产物一致，再检查实际启动与后台连接。验证时保留用户既有 Core、runner 与服务，不覆盖仍有进程引用的旧包。
 
+Intel 测试使用 `cargo test --release --workspace --target x86_64-apple-darwin --locked`。Apple Silicon 上可通过已安装的 Rosetta 执行 x86_64 测试与应用，但不能据此声称 Intel 或旧 macOS 真机已验收。Release GUI 固定使用应用标识对应的数据目录，`DEVNOOK_DATA_DIR` 仅对 Debug GUI 生效；正式包的界面启动检查保持只读，隔离业务写入由 Core / CLI 测试承担。
+
 ## 签名与公证
 
 **Release 编译模式与 Apple 公证是不同环节。** 当前本地构建使用 ad-hoc 签名，没有完成 Developer ID 签名或 Apple 公证。`codesign --verify` 验证包的签名完整性，不证明公证或 Gatekeeper 分发审核通过。
@@ -49,10 +64,10 @@ shasum -a 256 -c SHA256SUMS
 
 1. 确定版本号，并为对应源码创建版本标签，例如 `v0.1.0`。
 2. 完成该版本的构建、测试和签名状态核对。
-3. 将 `DevNook_0.1.0_aarch64.dmg` 与 `SHA256SUMS` 上传到该版本的 GitHub Release，发布说明如实写明目标架构、系统要求和公证状态。
+3. 上传相应架构的 DMG 与校验文件：Apple Silicon 使用 `DevNook_0.1.0_aarch64.dmg` / `SHA256SUMS`，Intel 使用 `DevNook_0.1.0_x64.dmg` / `SHA256SUMS-x86_64`。发布说明如实写明目标架构、系统要求和公证状态；同源版本追加新架构时保留既有资产，业务代码变化需使用新版本。
 4. 从公开资产重新核对文件大小及 SHA-256；确认可下载后，再更新官网发布清单。
 
-`site/release.json` 的公开下载字段示例：
+`site/release.json` 包含共同 `version` 和逐架构 `builds`。公开下载字段应合并到对应架构的 build，例如 aarch64：
 
 ```json
 {
@@ -61,7 +76,7 @@ shasum -a 256 -c SHA256SUMS
 }
 ```
 
-这是待合并的字段片段，其余体积、校验和与签名状态保留实际值。生成器只接受当前仓库、对应版本和准确文件名的下载地址；清单不完整或状态矛盾会阻止站点构建。未公开时，官网显示源码构建入口，不显示无效的 DMG 下载按钮。
+这是待合并到单个 build 的字段片段，其余架构、体积、校验和与签名状态保留实际值。生成器只接受当前仓库、对应版本和对应架构的准确文件名，拒绝重复架构、链接串架构和矛盾状态。未公开构建只显示源码入口，不能遮蔽同版本另一架构的有效下载。
 
 ## 历史体积基线与当前产物
 
@@ -80,5 +95,7 @@ shasum -a 256 -c SHA256SUMS
 同日确认内折角 N 图标后重新构建的 v0.1.0：`.app` 为 14,911,803 字节（14.91 MB），DMG 为 4,695,106 字节（4.70 MB），目标为 Apple Silicon / macOS 12+，采用 ad-hoc 签名，尚未公证。该产物已通过 [GitHub Release v0.1.0](https://github.com/Acorn2/devnook/releases/tag/v0.1.0) 公开分发，DMG 与 `SHA256SUMS` 均已从公开下载地址重新校验。版本标签对应源码 `4225ba51f0f91274f9a62e863c0aac40a74e5bb0`，中英文发布说明保存在 [v0.1.0.md](releases/v0.1.0.md)。
 
 完整尺寸 ICNS 与 PNG 从同一 SVG 导出，macOS 打包配置优先使用 ICNS。实际体积、校验和与公开状态已更新至 `site/release.json`；DMG 与安装后的应用采用不同体积口径，未来版本以重新构建结果为准。
+
+同源 Intel 构建已追加至 v0.1.0：`.app` 15,962,779 字节（15.96 MB），DMG 5,182,582 字节（5.18 MB），x86_64 / macOS 12+ / ad-hoc / 未公证。其独立校验文件为 `SHA256SUMS-x86_64`，原 Apple Silicon 包与校验文件不变。
 
 官网部署见 [GitHub Pages](GITHUB-PAGES.md)。

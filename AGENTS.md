@@ -13,6 +13,7 @@ macOS 优先的本地开发工作台。产品名使用 DevNook，原始设计资
 - 外观遵循 `PRODUCT.md` / `DESIGN.md`；各页面与浮层使用 `theme.css` 语义变量，支持浅色 / 暗色，不重新硬编码旧灰绿色。主题仅是本机展示偏好，不写入 Core 业务设置或服务配置。
 - 界面语言属于本机展示偏好：首次只按 macOS 首选语言判断，`zh` 及其变体使用中文，其余使用英文；显式 `devnook.language` 选择优先。设置中即时切换，不重建页面、不触发业务保存。应用文案通过 `i18n.ts` 与集中词典翻译，项目名、分类值、路径、命令和原始日志保持原文；不把语言写入 Core、SQLite、服务配置或 MCP。
 - 新包使用固定输出路径；构建且验证通过后清理本项目旧打包产物与旧验收 `.app` 副本，只保留最新可用包，避免累积占用空间。清理前核对字面量路径和运行状态；仍在运行的旧包待正常退出后再清理，不自动终止进程。
+- macOS 发行区分 aarch64 / x86_64，Intel 使用 `target/x86_64-apple-darwin/release/bundle/` 和 Tauri 的 `_x64.dmg` 文件名。`site/release.json` 按架构维护 builds，登记一个候选不能重置其他架构的公开状态；只追加新架构资产，不覆盖已发布 ARM 包及其 SHA256SUMS。Intel 校验文件为 `SHA256SUMS-x86_64`。Release GUI 忽略 DEVNOOK_DATA_DIR，该变量仅 Debug 生效；正式包启动检查保持只读，临时业务数据须由隔离 Core / CLI 测试承担。
 - `site/` 是独立的中英文 GitHub Pages 官网，`pnpm site:build` 输出 `dist/site/`，`pnpm site:check` 验证发布状态与静态链接。只使用演示截图，不连接真实 Core 或执行服务命令；`site/release.json` 必须反映实际签名、体积、校验和与公开状态。未上传的 DMG 不显示下载链接；发布步骤见 `docs/GITHUB-PAGES.md` / `docs/RELEASING.md`。
 
 - 工作区自动展开服务依赖并按拓扑顺序等待 READY；回滚/停止只操作带本次 workspace_run_id 的实例，保留既有或后来重启的运行。Core 启动先捕获未完成编排，再恢复回滚。禁止自动强杀回滚失败的服务。

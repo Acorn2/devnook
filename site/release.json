@@ -1,12 +1,27 @@
 {
   "version": "0.1.0",
-  "arch": "aarch64",
-  "minMacOS": "12.0",
-  "published": true,
-  "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_aarch64.dmg",
-  "dmgBytes": 4695106,
-  "appBytes": 14911803,
-  "sha256": "307618b4cdc418ab43d8dd818eb1205c8d69d25d6cce397e430f0e15ed9a2cc7",
-  "signing": "ad-hoc",
-  "notarized": false
+  "builds": [
+    {
+      "arch": "aarch64",
+      "minMacOS": "12.0",
+      "published": true,
+      "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_aarch64.dmg",
+      "dmgBytes": 4695106,
+      "appBytes": 14911803,
+      "sha256": "307618b4cdc418ab43d8dd818eb1205c8d69d25d6cce397e430f0e15ed9a2cc7",
+      "signing": "ad-hoc",
+      "notarized": false
+    },
+    {
+      "arch": "x86_64",
+      "minMacOS": "12.0",
+      "published": true,
+      "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.0/DevNook_0.1.0_x64.dmg",
+      "dmgBytes": 5182582,
+      "appBytes": 15962779,
+      "sha256": "f1a31777918ed089878d95c13909e05bbe3f08e6e10389ca797ff2fb60c136ad",
+      "signing": "ad-hoc",
+      "notarized": false
+    }
+  ]
 }
