@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="surface" x1="42" y1="16" x2="210" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#202936"/>
+      <stop offset="1" stop-color="#101318"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="64" y1="16" x2="194" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4c6079"/>
+      <stop offset="0.5" stop-color="#303d4f"/>
+      <stop offset="1" stop-color="#202936"/>
+    </linearGradient>
+    <linearGradient id="identity" x1="52" y1="180" x2="204" y2="76" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#91baff"/>
+      <stop offset="1" stop-color="#80d9ed"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="50" fill="url(#surface)"/>
+  <rect x="16.5" y="16.5" width="223" height="223" rx="49.5" stroke="url(#edge)"/>
+  <path d="M64 200Q52 200 52 188V68Q52 56 64 56H82Q88 56 92 62L168 154V92H148Q140 92 140 84V64Q140 56 148 56H192Q204 56 204 68V188Q204 200 192 200H174Q168 200 164 194L88 102V164H108Q116 164 116 172V192Q116 200 108 200Z" fill="url(#identity)"/>
+</svg>

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+target/
+.tmp/
+.DS_Store
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+apps/desktop/src-tauri/gen/
+*.db
+*.db-shm
+*.db-wal

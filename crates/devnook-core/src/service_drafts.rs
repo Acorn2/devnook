@@ -1,0 +1,312 @@
+//! Read-only launch suggestions. Drafts never register or execute a service.
+use crate::{
+    scanner::{identify, plain_file, read_manifest},
+    service_model::*,
+    Core,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::{
+    collections::{BTreeMap, HashSet},
+    path::Path,
+};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CommandSpec {
+    pub executable: String,
+    pub args: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDraft {
+    pub definition: ServiceDefinition,
+    pub command: String,
+    pub source: String,
+}
+
+/// A small command-line tokenizer, never a shell evaluator.
+pub fn parse_command(command: &str) -> Result<CommandSpec, String> {
+    if command.len() > 131_072 || command.contains(['\n', '\r', '\0']) {
+        return Err("启动命令应为一行，且不超过 131072 字节".into());
+    }
+    let (mut words, mut word, mut quote, mut escaped, mut started) =
+        (Vec::new(), String::new(), None, false, false);
+    for ch in command.chars() {
+        if escaped {
+            if quote == Some('"') && !['"', '\\', '$', '`'].contains(&ch) {
+                word.push('\\');
+            }
+            word.push(ch);
+            escaped = false;
+            continue;
+        }
+        match quote {
+            Some('\'') => {
+                if ch == '\'' {
+                    quote = None
+                } else {
+                    word.push(ch)
+                }
+            }
+            Some('"') => match ch {
+                '"' => quote = None,
+                '\\' => escaped = true,
+                '$' | '`' => return Err("变量展开需要在高级设置中显式开启 Shell 模式".into()),
+                _ => word.push(ch),
+            },
+            _ => match ch {
+                '\'' | '"' => {
+                    quote = Some(ch);
+                    started = true;
+                }
+                '\\' => {
+                    escaped = true;
+                    started = true;
+                }
+                '|' | '&' | ';' | '<' | '>' | '$' | '`' | '(' | ')' => {
+                    return Err("组合命令需要在高级设置中显式开启 Shell 模式".into())
+                }
+                ch if ch.is_whitespace() => {
+                    if started {
+                        words.push(std::mem::take(&mut word));
+                        started = false;
+                    }
+                }
+                _ => {
+                    word.push(ch);
+                    started = true;
+                }
+            },
+        }
+    }
+    if escaped || quote.is_some() {
+        return Err("启动命令的引号或转义未闭合".into());
+    }
+    if started {
+        words.push(word);
+    }
+    if words.is_empty() || words[0].is_empty() {
+        return Err("请填写启动命令".into());
+    }
+    if words[0].contains('=') {
+        return Err("请在高级设置中填写环境变量".into());
+    }
+    if words.len() > 257 {
+        return Err("启动参数不能超过 256 项".into());
+    }
+    Ok(CommandSpec {
+        executable: words.remove(0),
+        args: words,
+    })
+}
+
+pub fn display_command(spec: &CommandSpec) -> String {
+    std::iter::once(&spec.executable)
+        .chain(spec.args.iter())
+        .map(|word| {
+            if !word.is_empty()
+                && word
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || "_./:@%+=,-".contains(ch))
+            {
+                word.clone()
+            } else {
+                format!("'{}'", word.replace('\'', "'\\''"))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn suggestion(path: &Path, root: &Path) -> Option<(CommandSpec, String)> {
+    if read_manifest(&path.join("package.json"))
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .is_some()
+    {
+        let script = crate::scanner::node_script(path)?;
+        let mut manager = None;
+        for dir in path.ancestors().take_while(|dir| dir.starts_with(root)) {
+            let manifest = read_manifest(&dir.join("package.json"))
+                .and_then(|s| serde_json::from_str::<Value>(&s).ok());
+            if let Some(field) = manifest
+                .as_ref()
+                .and_then(|p| p.get("packageManager"))
+                .and_then(Value::as_str)
+            {
+                let name = field.split('@').next().unwrap_or_default();
+                if !["npm", "pnpm", "yarn", "bun"].contains(&name) {
+                    return None;
+                }
+                manager = Some(name.to_string());
+                break;
+            }
+            let found: Vec<_> = [
+                ("pnpm-lock.yaml", "pnpm"),
+                ("yarn.lock", "yarn"),
+                ("bun.lock", "bun"),
+                ("bun.lockb", "bun"),
+                ("package-lock.json", "npm"),
+            ]
+            .into_iter()
+            .filter_map(|(file, name)| plain_file(&dir.join(file)).then_some(name))
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+            if found.len() > 1 {
+                return None;
+            }
+            if let Some(name) = found.first() {
+                manager = Some((*name).to_string());
+                break;
+            }
+        }
+        return Some((
+            CommandSpec {
+                executable: manager.unwrap_or_else(|| "npm".into()),
+                args: vec!["run".into(), script.clone()],
+            },
+            format!("package.json · scripts.{script}"),
+        ));
+    }
+    if read_manifest(&path.join("pom.xml")).is_some_and(|s| s.contains("spring-boot")) {
+        let executable = if plain_file(&path.join("mvnw")) {
+            path.join("mvnw").to_string_lossy().into()
+        } else {
+            "mvn".into()
+        };
+        return Some((
+            CommandSpec {
+                executable,
+                args: vec!["spring-boot:run".into()],
+            },
+            "pom.xml · Spring Boot".into(),
+        ));
+    }
+    for manifest in ["build.gradle", "build.gradle.kts"] {
+        if let Some(text) = read_manifest(&path.join(manifest)) {
+            let task = if text.contains("org.springframework.boot") {
+                "bootRun"
+            } else if text.contains("application") {
+                "run"
+            } else {
+                continue;
+            };
+            let executable = if plain_file(&path.join("gradlew")) {
+                path.join("gradlew").to_string_lossy().into()
+            } else {
+                "gradle".into()
+            };
+            return Some((
+                CommandSpec {
+                    executable,
+                    args: vec![task.into(), "--no-daemon".into()],
+                },
+                format!("{manifest} · {task}"),
+            ));
+        }
+    }
+    if plain_file(&path.join("Cargo.toml")) && plain_file(&path.join("src/main.rs")) {
+        return Some((
+            CommandSpec {
+                executable: "cargo".into(),
+                args: vec!["run".into()],
+            },
+            "Cargo.toml · src/main.rs".into(),
+        ));
+    }
+    None
+}
+
+impl Core {
+    pub fn service_drafts(&self, project_id: &str) -> Result<Vec<ServiceDraft>, String> {
+        let project = self
+            .projects()?
+            .into_iter()
+            .find(|p| p.candidate.id == project_id)
+            .ok_or("项目不存在")?;
+        let root = Path::new(&project.candidate.canonical_path);
+        let canonical = root.canonicalize().map_err(|_| "项目目录不可访问")?;
+        if canonical != root {
+            return Err("项目目录已改变，请重新扫描".into());
+        }
+        let mut paths = vec![project.candidate.canonical_path.clone()];
+        paths.extend(
+            project
+                .candidate
+                .components
+                .iter()
+                .map(|c| c.canonical_path.clone()),
+        );
+        let mut seen = HashSet::new();
+        let mut drafts = Vec::new();
+        for text in paths {
+            if !seen.insert(text.clone()) {
+                continue;
+            }
+            let path = Path::new(&text);
+            if !path.starts_with(root) || path.canonicalize().ok().as_deref() != Some(path) {
+                continue;
+            }
+            let Some(candidate) = identify(path, None).filter(|c| c.runnable) else {
+                continue;
+            };
+            let name = if path == root {
+                "根目录启动".to_string()
+            } else {
+                path.strip_prefix(root)
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            };
+            let command = suggestion(path, root);
+            let definition = ServiceDefinition {
+                id: String::new(),
+                project_id: project_id.into(),
+                name,
+                runtime_type: if ["NODE", "JAVA", "PYTHON"]
+                    .contains(&candidate.project_type.as_str())
+                {
+                    candidate.project_type
+                } else {
+                    "OTHER".into()
+                },
+                executable: command
+                    .as_ref()
+                    .map(|c| c.0.executable.clone())
+                    .unwrap_or_default(),
+                args: command
+                    .as_ref()
+                    .map(|c| c.0.args.clone())
+                    .unwrap_or_default(),
+                shell_mode: false,
+                working_directory: text,
+                environment: BTreeMap::new(),
+                secret_keys: vec![],
+                expected_ports: vec![],
+                dependencies: vec![],
+                readiness: Readiness::default(),
+                stop_grace_seconds: 5,
+                log_limit_kb: 1024,
+                revision: String::new(),
+                created_at: 0,
+                updated_at: 0,
+            };
+            drafts.push(ServiceDraft {
+                definition,
+                command: command
+                    .as_ref()
+                    .map(|c| display_command(&c.0))
+                    .unwrap_or_default(),
+                source: command
+                    .map(|c| c.1)
+                    .unwrap_or_else(|| "需要补充启动命令".into()),
+            });
+        }
+        drafts.sort_by_key(|d| {
+            (
+                d.definition.working_directory == project.candidate.canonical_path,
+                d.definition.name.clone(),
+            )
+        });
+        Ok(drafts)
+    }
+}

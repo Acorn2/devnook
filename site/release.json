@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "arch": "aarch64",
+  "minMacOS": "12.0",
+  "published": false,
+  "url": null,
+  "dmgBytes": 4695106,
+  "appBytes": 14911803,
+  "sha256": "307618b4cdc418ab43d8dd818eb1205c8d69d25d6cce397e430f0e15ed9a2cc7",
+  "signing": "ad-hoc",
+  "notarized": false
+}

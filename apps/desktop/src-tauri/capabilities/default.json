@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "主窗口仅通过 Core 使用本地能力，目录选择使用原生对话框。",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:window:allow-set-theme", "dialog:allow-open"]
+}

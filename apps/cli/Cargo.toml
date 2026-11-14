@@ -1,0 +1,17 @@
+[package]
+name = "devnook-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "devnook"
+path = "src/main.rs"
+
+[dependencies]
+devnook-core = { path = "../../crates/devnook-core" }
+clap = { version = "4", features = ["derive", "env"] }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

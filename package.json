@@ -1,0 +1,26 @@
+{
+  "name": "devnook-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev": "pnpm --filter @devnook/desktop dev",
+    "check": "pnpm --filter @devnook/desktop check",
+    "test:ui": "pnpm --filter @devnook/desktop test",
+    "build": "pnpm --filter @devnook/desktop build",
+    "tauri": "sh scripts/rust-local.sh pnpm --filter @devnook/desktop tauri",
+    "test:core": "sh scripts/rust-local.sh cargo test -p devnook-core",
+    "check:rust": "sh scripts/rust-local.sh cargo check --workspace",
+    "format": "prettier --write 'apps/desktop/src/**/*.{ts,tsx,css}'",
+    "format:check": "prettier --check 'apps/desktop/src/**/*.{ts,tsx,css}'",
+    "build:cli": "sh scripts/rust-local.sh cargo build -p devnook-cli",
+    "test:cli": "sh scripts/rust-local.sh cargo test -p devnook-cli",
+    "test": "sh scripts/rust-local.sh cargo test --workspace",
+    "site:build": "node scripts/build-site.mjs",
+    "site:preview": "node scripts/preview-site.mjs",
+    "site:check": "node --test site/release.test.mjs && node scripts/check-site.mjs"
+  },
+  "devDependencies": {
+    "prettier": "^3.10.0"
+  }
+}
