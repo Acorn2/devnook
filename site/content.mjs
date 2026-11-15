@@ -80,7 +80,7 @@ export const content = {
     faqs: [
       [
         '支持哪些系统？',
-        '当前面向 macOS 12+，分别提供 Apple Silicon 与 Intel Mac 安装包。Intel 构建已通过 Rosetta 测试与原生窗口启动检查；Intel 和 macOS 12 真机仍需补充验证。Windows / Linux 是否推进，将结合社区需求与维护资源评估。',
+        '当前面向 macOS 12+，分别提供 Apple Silicon 与 Intel Mac 安装包。Intel 构建使用 Rosetta 验证；Intel 和 macOS 12 真机仍需补充验证。Windows / Linux 是否推进，将结合社区需求与维护资源评估。',
       ],
       [
         '扫描会修改或运行我的项目吗？',
@@ -88,7 +88,7 @@ export const content = {
       ],
       [
         '关闭窗口后，服务还会运行吗？',
-        '会。独立 Core 与 runner 维持已经启动的服务和日志。DevNook 不安装系统自启动项；没有活动服务且客户端闲置后，后台可自行退出。',
+        '会。关闭窗口后可从菜单栏 N 图标或 Dock 恢复；退出应用只结束 GUI。独立 Core 与 runner 维持已经启动的服务和日志。DevNook 不安装系统自启动项；没有活动服务且客户端闲置后，后台可自行退出。',
       ],
       [
         '可以和现有编辑器、终端一起用吗？',
@@ -191,9 +191,26 @@ export const content = {
         ],
       },
       {
+        id: 'tray',
+        scene: 'tray',
+        imageWidth: 340,
+        imageHeight: 214,
+        label: '03 / 菜单栏快捷面板',
+        title: '不切回主窗口，\n也能核对服务。',
+        body: '点击 macOS 菜单栏的 N 图标，集中查看运行中、异常及收藏项目的服务。单服务项目直接一行，多服务项目才显示分组标题。',
+        bullets: [
+          '核对实际端口，进入服务详情，或正常停止 DevNook 托管的运行。',
+          '长列表独立滚动，底部入口固定；按项目、服务或端口搜索，也可用 ⌘F 唤出搜索。',
+          '仅近期已确认的单一网页入口显示浏览器图标；API 与未知端口不会出现地球按钮。',
+        ],
+        note: '启动与重启仍进入主窗口确认。关闭窗口后可从菜单栏恢复，退出应用也不会停止已运行的服务。',
+        caption: '菜单栏面板 · 单行服务、实际端口与必要操作 / 演示数据',
+        alt: '紧凑菜单栏面板以七行展示项目、实际端口和状态，仅两个已确认网页入口显示浏览器按钮',
+      },
+      {
         id: 'ports',
         scene: 'ports',
-        label: '03 / 端口与进程',
+        label: '04 / 端口与进程',
         title: '端口被占用时，先看清是谁。',
         body: '从 TCP 监听端口定位进程，查看命令、工作目录、启动时间与项目归属。区分 DevNook 托管和外部启动，再决定下一步操作。',
         bullets: [
@@ -207,7 +224,7 @@ export const content = {
       {
         id: 'plans',
         scene: 'plans',
-        label: '04 / 多服务启动方案',
+        label: '05 / 多服务启动方案',
         title: '数据库就绪，\n再启动 API 和前端。',
         body: '把已登记的服务组成启动方案。入口可以来自多个项目，依赖会自动展开，等待上游就绪后再启动下游。',
         bullets: [
@@ -319,7 +336,7 @@ export const content = {
     faqs: [
       [
         'Which platforms are supported?',
-        'DevNook targets macOS 12+ with separate Apple Silicon and Intel Mac installers. The Intel build has passed Rosetta tests and native window startup checks; Intel hardware and physical macOS 12 devices still need verification. Windows / Linux work will depend on community demand and maintainer capacity.',
+        'DevNook targets macOS 12+ with separate Apple Silicon and Intel Mac installers. Intel builds are checked with Rosetta; Intel hardware and physical macOS 12 devices still need verification. Windows / Linux work will depend on community demand and maintainer capacity.',
       ],
       [
         'Will a scan change or run my project?',
@@ -327,7 +344,7 @@ export const content = {
       ],
       [
         'Do services keep running after I close the window?',
-        'Yes. A separate Core and runner maintain confirmed services and logs. DevNook installs no system startup item. The backend can exit when no services are active and clients remain idle.',
+        'Yes. Reopen the window from the menu bar N icon or Dock; quitting the app exits only the GUI. A separate Core and runner maintain confirmed services and logs. DevNook installs no system startup item. The backend can exit when no services are active and clients remain idle.',
       ],
       [
         'Can I keep using my editor and terminal?',
@@ -430,9 +447,26 @@ export const content = {
         ],
       },
       {
+        id: 'tray',
+        scene: 'tray',
+        imageWidth: 340,
+        imageHeight: 214,
+        label: '03 / MENU BAR ACCESS',
+        title: 'Check services without switching windows.',
+        body: 'Click the N icon in the macOS menu bar for running services, services needing attention, and services in favorite projects. Single-service projects use one row; only multiple services need a project heading.',
+        bullets: [
+          'Check actual ports, jump to details, or gracefully stop a DevNook-managed run.',
+          'Long lists scroll above a fixed footer. Search projects, services, or ports; use ⌘F to bring up search.',
+          'Browser icons require a recently confirmed single web entry. APIs and unknown ports do not get a globe.',
+        ],
+        note: 'Start and restart still open confirmation in the main window. Reopen a closed window from the menu bar; quitting the GUI leaves running services active.',
+        caption: 'Menu bar panel · Compact services, actual ports and controls / Demo data',
+        alt: 'Compact menu bar panel with seven project rows, actual ports and status, with browser icons on only two confirmed page entries',
+      },
+      {
         id: 'ports',
         scene: 'ports',
-        label: '03 / PORTS & PROCESSES',
+        label: '04 / PORTS & PROCESSES',
         title: 'A port is occupied. See what is behind it.',
         body: 'Trace a TCP listener to its process. Inspect the command, working directory, start time, and project ownership. Distinguish managed and externally started processes before acting.',
         bullets: [
@@ -447,7 +481,7 @@ export const content = {
       {
         id: 'plans',
         scene: 'plans',
-        label: '04 / MULTI-SERVICE STARTUP',
+        label: '05 / MULTI-SERVICE STARTUP',
         title: 'Database first. Then your API and frontend.',
         body: 'Combine registered services into a startup plan. Entry services can span projects. Dependencies expand automatically, and downstream services wait for upstream readiness.',
         bullets: [

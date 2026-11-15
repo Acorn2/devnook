@@ -1215,3 +1215,51 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - 核对字面量路径、进程与 lsof 后清理本轮临时保留的未运行旧 Release bundle 与新包打包中间程序，保留当前两架构最新 app / DMG / 校验文件及仍被真实 Core / runner 引用的旧 Debug 包。没有退出任何既有 GUI、Core、runner 或服务；从开工基线到公开校验后的配置版本、完整运行 / 历史与内核身份快照一致。
 
 本地下载区通过中英文 × 浅暗 × 375 / 1440 共 8 个布局检查；版本、架构、DMG 体积、SHA-256、签名说明及 URL 与清单一致，无横向溢出，已实际回读桌面 / 手机截图。官网沿用手动 GitHub Pages 发布，部署后需核对公开中英文下载区与两个实际链接。公开下载校验、旧资产保全与服务快照见忽略目录 `.tmp/release-v0.1.1-20261115/`，不作为产品依赖。
+
+## macOS 菜单栏快捷面板（2026-11-15）
+
+- 用户确认“菜单栏图标 + 自定义快捷面板”方案后实现。面板约 420×560 逻辑单位，按屏幕工作区限位，项目分组展示运行中 / 需关注及收藏项目的服务。支持真实状态、Core 核验实际端口、显式浏览器入口、服务详情、启动 / 重启确认跳转、查看全部与打开 / 退出应用。外部 SERVICE 仅表达监听事实，不提供面板停止或接管入口；没有整项目批量启停。
+- Tauri 适配层启用既有 `tray-icon` feature，增加透明单色 N 模板图标与隐藏 WebView。主窗口关闭改为隐藏，Dock 重开恢复；面板失焦 / Escape 收起。导航采用 GUI 内存队列，主窗口加载后读取最新服务再调用原有短期预览；编辑或确认期间暂缓新目标，不自动提交控制。Core / runner、UDS v10、SQLite、MCP 及业务权限保持原机制，无新增 npm 包。
+- 面板和主窗口隐藏后暂停列表 / 服务 / 日志 / 历史轮询，重开重新读取。可见性及导航事件限定到各自窗口，防止面板收起误停主窗口刷新。共用中英词典及浅暗语义变量，通过同源展示偏好同步，不重建已打开的确认表单。首轮视觉检查修复了通用状态样式为整行染色的问题；长名称截断并保留完整提示，列表独立滚动，底部操作保持可见。
+- 实际验证：`pnpm test:ui` 共 32 项通过，新增 5 项覆盖筛选状态、实际端口与托管身份、外部 PID 去重 / 用途排除、排序 / 数据不变性和本地化。`pnpm test` 共 95 项通过、5 项按既有 fixture 条件忽略，新增 3 项桌面测试覆盖工作区限位 / Retina 与负坐标、窄工作区缩小、导航拒绝 Shell / URL / 停止参数。`pnpm check`、`pnpm check:rust`、`pnpm format:check`、`cargo fmt --all`、`pnpm build` 及 `git diff --check` 通过。
+- ego-browser 检查中英 × 浅暗 × 320×400 / 420×560 / 500×680 共 12 个面板布局，含长名称、异常、长列表；无整页溢出，底部按钮可见。验证网页使用准确候选、明确 API 跳转详情、端口失败禁用入口、Core 失败清除可操作旧快照、空态、Escape 后暂停刷新及重开刷新。760×560 主窗口验证启动 / 重启只生成原有预览、不自动确认，已有确认期间的新导航延后，中英 / 主题跨窗口同步且表单保留，主窗口隐藏后四类轮询暂停；无运行错误。浏览器任务已结束，临时 Web UI 已恢复为停止状态。Ego Lite 提示可更新，本轮未升级。
+- `pnpm tauri build --debug --no-bundle` 通过，固定 `target/latest/debug/bundle/macos/DevNook.app` 打包成功（arm64 Debug，52,880,171 字节 / 50.43 MiB）；ad-hoc strict / deep 签名及 Info.plist 校验通过。主程序 SHA-256：`4ff051bd15b99da64f37ad5a0e430d2f811754a32a3ffbbebdb7a738a7e9285b`。打包前核对 latest 路径没有运行引用，旧 latest 暂移至本轮忽略目录；验证后再次核对进程及 lsof 无引用，已将该旧副本与 latest 打包中间程序移入系统废纸篓，保留可恢复性。既有 current / debug / Intel 包因有运行引用而保留。
+- 原生验收使用独立 `.tmp/tray-20261115/core` 和真实 Node 测试服务，不写入真实应用数据库。GUI PID 89906 读取隔离档案，系统顶部截图确认单色 N 图标；关闭窗口后同一 GUI 继续运行，系统 open 后恢复窗口，正常 Cmd+Q 后 localhost 确认为 exit code 0。退出后复查同一服务 run_id / PID 均未变、仍为 READY，HTTP 返回 200；随后仅正常停止本轮测试服务与隔离 Core。原生工具回读会重新打开应用，因此最新 GUI 随后以正常本机数据只读展示；没有替换真实 Core，既有 GUI / Core PID 保持。
+- 原生状态栏点击验证受工具范围限制：Computer Use 将顶部 N 的坐标识别为窗口外，并返回 `windowNotFoundAtPosition`，无法据此声称原生展开 / 点击外部收起已经实测。面板渲染及操作已在隔离界面覆盖，原生菜单栏展开、失焦收起、多显示器 / 全屏 Space、Intel 与旧 macOS 仍需手动或真机复核。
+
+额外的定向文档格式检查中，README 中英、MVP、ARCHITECTURE、TECH-STACK 及新增 capability / 测试文件通过；`DESIGN.md` 仅原有颜色表格的列对齐不符合 Prettier，本轮没有为此格式化无关旧内容。新增 UI 源码格式检查通过。
+
+验证记录位于忽略目录 `.tmp/tray-20261115/`；系统顶部截图为 `/var/folders/ff/_3sy4x0x7bdb21l8rj13nrv40000gp/T/codex-shot-2026-11-15_17-54-58.png`，仅作本机验收证据。临时复用的 localhost QA 命令已恢复原配置；不停止既有服务，不安装 LaunchAgent，不修改真实 MCP 配置 / 授权，不提交、推送、发布 DMG 或官网。
+
+## 菜单栏紧凑布局重做（2026-11-15）
+
+- 用户提供两张对照图，明确要求参照 localhost 提高信息密度。将 420×560 固定面板改为 340 逻辑单位宽、按内容增减高度的紧凑菜单，原生最大高度 520，再按当前屏幕工作区限界。修复 `<main>` 继承工作台 16px padding 的样式串用；分组标题 20px、服务行 22px，名称 / 实际端口 / 简短状态同排。移除大品牌头、正常连接摘要、分组数量 / 星标、重复详情箭头、筛选口径与常驻退出说明，底部仅两行。根目录“外部服务”不再重复“外部”状态，组件路径仍保留外部标记；完整内容保留提示。
+- ResizeObserver 测量列表的自然高度和两行底部，通过只允许 tray 窗口调用的 resize_tray 缓存在 GUI 内存。原生拒绝非有限值，限制 80–520 并重新核对当前屏幕工作区；调整尺寸不打开或聚焦窗口。不新增 Core 协议、SQLite 字段、MCP 能力或依赖。重开 / 手动刷新等待新快照期间保留原布局并禁用服务操作，读取失败清除旧快照，隐藏仍暂停轮询。
+- 托管行新增显式正常停止入口，直接调用已有 stop_service，由 Core 沿用 runner 身份校验与正常停止；STARTING / RUNNING / READY 才显示，不增加强停、外部停止或整组启停。启动 / 重启仍排入主窗口的原有版本确认，服务名打开详情，网页入口继续只对显式点击目标读取 / 核验地址。外部及 UNKNOWN 不出现快捷停止。更新 DESIGN / MVP / ARCHITECTURE / TECH-STACK、AGENTS 与中英 README 的当前行为说明，原始 PRD 未改。
+- 实际验证：`pnpm test:ui` 34 项通过，新增紧凑状态不混淆、外部名称 / 实际端口拆分与重复标签检查；`cargo test -p devnook-desktop` 4 项通过，覆盖自适应高度增减、上下限 / NaN / Infinity、Retina / 负坐标 / 窄工作区，以及导航参数边界。`pnpm check`、`pnpm check:rust`、`pnpm format:check`、`cargo fmt --all -- --check`、定向 Markdown / 新测试格式检查与 `git diff --check` 通过。Core / CLI 业务代码未改，本轮未重跑其完整测试套件。
+- ego-browser 采用真实 React 组件与浏览器内存替身，以中英 × 浅暗 × 3 / 5 / 16 条服务检查 12 个布局：宽均为 340，实测高度分别为 202 / 246 / 516，所有服务完整可见、行高均为 22、根节点 padding=0，无整页溢出，底部合计 52px。空态高 116；40 条记录时列表滚动，底部保持可见。额外覆盖长名称 / 多端口 / UNKNOWN 单行、精确浏览器候选且无自动探测、外部只读、正常停止只发一个已保存服务 ID、等待时防重复、身份错误不重试 / 强停、端口失败禁用网页、Core 失败清除旧控制、Escape 后停止轮询、760×560 主窗口确认不自动执行及取消无写操作。没有浏览器运行错误。
+- 已回读实际截图，删除短列表中重复的外部标签，并重新检查最终短列表与启动确认。演示图保存于 `docs/images/devnook-tray-compact-short.png`、`devnook-tray-compact-light.png`、`devnook-tray-compact-dark.png`，全部为隔离数据，未使用用户真实项目或进程截图。验证脚本和详细测量保留于忽略目录 `.tmp/tray-compact-20261115/`，产品不依赖该目录。浏览器任务结束，临时 Web UI 已停止；原 site-preview 和所有既有服务保留。Ego Lite 提示可更新，本轮未升级。
+- `pnpm tauri build --debug --no-bundle` 与固定 `target/preview` 的 ad-hoc app 打包通过，最终包为 arm64 Debug、52,979,723 字节（50.53 MiB）；strict / deep 签名、Info.plist 校验通过。主程序 SHA-256：`3270e2daf35e6ee00d5cf8c38bfaf9d317edd7caee5159295903b802d0952d90`。由于旧 latest 包仍在运行，未覆盖或自动退出，亦保留 current / debug 的运行引用；仅核对 lsof 无引用后将本轮 preview 中间程序移入系统废纸篓。
+- 系统 open -n 打开新 preview 包，GUI PID 40430 的实际路径一致，原生 AX 只读确认“后台已连接”。真实 Core PID 66122 与既有 GUI PID 保持；没有升级 / 重启 Core、导入项目、保存设置或操作真实服务。新正常停止入口只以内存替身验收，身份核验沿用现有 Core；原生面板展开 / 自适应过程仍受窗口外菜单栏自动化限制，未据此声称原生交互已实测。多显示器 / 全屏 Space、Intel 与旧 macOS 未补测。
+
+本轮未提交、推送、发布 DMG / 官网、修改 MCP 客户端或创建控制授权。新包已打开供本机查看，旧包待用户正常退出后再清理。
+
+## 菜单栏单行密度与长列表交互修正（2026-11-15）
+
+- 根据用户确认的方向修正：单服务项目直接一行显示项目名 / 实际端口 / 状态，原服务名与组件路径保留在提示、搜索和详情；多服务项目才显示标题。继续保持 340 宽、22px 服务行、最多 520 高及固定两行底部。停止改用实心小方块，操作列固定位置，无操作的外部条目让出空间给名称。
+- 同次展开冻结高度、分组形式与顺序，后台刷新保留焦点和滚动位置。新增条目追加，消失条目立即清空端口、禁用操作并保留原位，下次展开重新计算排序与高度。超过 12 条自动显示搜索，也支持 ⌘F，匹配项目 / 服务 / 实际端口；过滤不改变本次高度或多服务分组形式。方向键逐行选择、Enter 进详情、Escape 收起。列表超高时独立滚动，上下边缘箭头提示剩余内容。首轮截图中箭头遮住末行状态，已移至左侧留白；错误信息移入固定底部，避免推移服务行。
+- 移除“有监听即显示地球”的条件。CoreClient 仅将显式选中服务时已有根地址识别结果保存在本 GUI 内存，最多 64 个目标、120 秒，重开 GUI 后不继承。新增 GUI 读取命令 tray_browser_shortcuts 使用既有 v10 只读接口复核目标 / URL / PID / 指纹，无 HTTP 请求，冷缓存不接触 Core；仅确认网页且单一 HTTP 入口才显示图标。API / 未知 / 多入口进入详情处理，面板不再点击后才判断入口类型。点击原有 open_service_browser 仍独立核验当前身份，不重复探测。没有新增 daemon RPC、SQLite 字段、MCP 能力或依赖。
+- `pnpm test:ui` 最终 38 项通过：新增稳定排序 / 失效占位 / 重开重算、搜索保留分组与只匹配实际端口、网页三态及目标 / PID / 端口边界、多入口不显示快捷、现存会话即时切换中英且原始名称不翻译。`cargo test -p devnook-core` 85 项通过、5 项既有 fixture 忽略；其中浏览器 11 项覆盖短期证据过期 / 容量 / 覆盖，真实隔离 UDS 证明只发既有 v10 读取、身份改变拒绝旧证据、面板刷新没有 HTTP 连接。`cargo test -p devnook-desktop` 4 项通过。`pnpm check`、`cargo check --workspace`、`pnpm format:check`、`cargo fmt --all -- --check`、定向文档 / 测试格式检查、`pnpm build` 及 `git diff --check` 通过。
+- ego-browser 使用真实 React 与纯浏览器内存替身，覆盖 7 个单服务项目、16 条混合分组、40 条服务，以及中英 / 浅暗 / 260 高受限空间。7 条实测 340×214，3 条实测 340×126，行高均为 22；40 条限高 520，较小视口内底部仍固定。过滤项目 + 端口、无结果、上下滚动提示、隐藏 / 重开重算、方向键 / Enter / Escape、刷新后的顺序 / 焦点 / 滚动保留、网页准确打开、身份错误提示、端口失败保持托管 READY 且外部待核验、Core 断连禁用旧控制均通过。全部面板场景 service_browser_addresses 调用数为 0，未执行批量 HTTP 探测。重启只发送导航，正常停止仅在内存替身中执行既有 ID。无浏览器运行错误；切换语言即时生效，不依赖轮询。
+- 最终浅暗、短列表、多服务与长列表演示图位于 `docs/images/devnook-tray-compact-*.png`，均为隔离演示数据，并已实际回读截图检查。详细脚本和测量保留于忽略目录 `.tmp/tray-ux-20261115/`，交付不依赖该目录。浏览器任务已结束，本轮启动的 web-ui 已由 localhost 停止；既有服务与 site-preview 保留。Ego Lite 提示有更新，本轮未升级。
+- `pnpm tauri build --debug --no-bundle` 与固定 `target/latest/debug/bundle/macos/DevNook.app` 打包通过：arm64 Debug、53,269,083 字节，ad-hoc strict / deep 签名和 Info.plist 校验通过，主程序 SHA-256 `b2351888a8e714341a017890fabb9435b0fe09c26d5e9de6af38744217726f41`。打包前核对旧 latest 无运行进程及 lsof 引用，先暂存备份；新包通过后再次逐个核对字面路径，将旧备份与独立打包中间程序移入系统废纸篓，未永久删除。仍被引用的 preview / current / debug 包保留，没有自动退出旧 GUI / Core / runner。
+- 系统 open -n 后新 GUI PID 75628 的可执行路径指向最新包，原 Core PID 66122、旧 GUI PID 40430 和 runner 保持。Computer Use 检查被 macOS 锁屏阻断，未进行界面操作，因此不声称已验证新版原生窗口渲染、菜单栏展开 / 失焦收起。原生菜单交互、多显示器 / 全屏 Space、Intel / 旧 macOS 仍需手动或真机验收。没有操作真实服务、导入项目、保存业务设置、修改 MCP 配置或升级 Core；未提交、推送、发布安装包或官网。
+
+## v0.1.2 菜单栏发行准备（2026-11-15）
+
+- 用户明确授权提交 / 推送代码、更新官网并上传最新安装包。沿用 main，发布新的 v0.1.2，不覆盖 v0.1.0 / v0.1.1 的远端资产；本地三份开发故事草稿及对应记录不纳入本轮发布提交。同步 workspace / Cargo.lock 三个本地包、根与桌面 package.json、Tauri 配置和关于页版本，未升级依赖。
+- 保留菜单栏完整实现及前述紧凑交互修正。官网沿用既有布局，新增中英文菜单栏功能区与四张真实 React 演示截图，使用 Meridian Shop 等虚构项目；图片按实际 340×214 比例展示，最大宽度受限，避免放大成大面板。补充 README 与使用指南，发布说明为 `docs/releases/v0.1.2.md`。
+- 本轮 `pnpm check`、`pnpm format:check`、`pnpm test:ui`（38 项）、`pnpm build`、`cargo check --workspace --locked`、`cargo fmt --all -- --check` 与 `git diff --check` 通过。Apple Silicon 与 x86_64 / Rosetta 的 Release workspace 各 97 项通过、5 个既有 fixture 忽略；两个矩阵仅为测试子进程优先使用系统 Apple Python 3.9.6，未改产品就绪期限。官网清单 8 项测试与两种语言 72 个本地链接 / 资源检查通过。
+- 两架构 `pnpm tauri build --no-bundle` 与 ad-hoc app / DMG 打包成功；镜像完整性、Mach-O 架构 / 最低 macOS 12.0、Info.plist 版本 0.1.2、strict / deep 签名、Applications 链接及只读挂载逐文件 SHA-256 一致性通过。Apple Silicon app 15,327,099 字节、DMG 4,874,171 字节，SHA-256 `f8f51cc8a215a61a9f99697c34b5ffe6d9b769fbec17a4122df5393e05b35e2b`；Intel app / DMG 的实际值登记在本版发布清单与校验文件。采用固定输出路径，旧未运行 bundle 先核对进程 / lsof 后暂存至本轮忽略目录，仍在运行的 Debug 包保留。
+- 官网新增区域通过中英 × 浅暗 × 375 / 1440 共 8 个浏览器布局检查：无横向溢出，图片 / 原图链接随语言和主题匹配，图片保持紧凑宽度，发布候选不显示下载链接。已回读桌面、手机及原图；最终公开下载和线上部署检查在发布后另行登记。浏览器验证仍在同一 TaskSpace 中进行。
+- 真实 Core 与服务保全使用仅含既有 v10 只读调用的前后快照；本轮不操作真实服务、不退出旧 Core / GUI / runner，不安装 LaunchAgent，不修改 MCP 授权。没有重复尝试上一轮被锁屏阻断的原生 UI 检查；发布说明保留原生菜单 / 多显示器 / 全屏 Space、Intel / 旧 macOS 真机未完成的边界。构建 / 验证日志位于忽略目录 `.tmp/release-v0.1.2-20261115/`，产品不依赖该目录。

@@ -63,6 +63,7 @@ pub struct CoreClient {
     launcher: RunnerLauncher,
     boot: Mutex<()>,
     context: crate::access::RequestContext,
+    pub(crate) browser_evidence: Mutex<crate::browser::BrowserEvidenceCache>,
 }
 impl CoreClient {
     pub fn new(directory: &Path, executable: PathBuf) -> Result<Self, String> {
@@ -97,6 +98,7 @@ impl CoreClient {
             launcher,
             boot: Mutex::new(()),
             context: Default::default(),
+            browser_evidence: Mutex::new(Default::default()),
         })
     }
     pub fn with_context(mut self, context: crate::access::RequestContext) -> Self {

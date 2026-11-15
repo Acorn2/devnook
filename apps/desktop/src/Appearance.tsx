@@ -28,6 +28,22 @@ export function useAppearance(report: (error: unknown) => void) {
   );
   const [storageError, setStorageError] = useState(false);
   useEffect(() => {
+    const synchronize = (event: StorageEvent) => {
+      if (event.key !== 'devnook.appearance' && event.key !== null) return;
+      const value = event.newValue;
+      const next =
+        value === 'light' || value === 'dark'
+          ? value
+          : matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+      applyAppearance(next);
+      setAppearance(next);
+    };
+    window.addEventListener('storage', synchronize);
+    return () => window.removeEventListener('storage', synchronize);
+  }, []);
+  useEffect(() => {
     applyAppearance(appearance);
     if (native) {
       // Window chrome follows the explicit app choice, independently of the OS setting.

@@ -94,6 +94,10 @@ export interface BrowserAddress {
   fingerprint: string;
   web_ui?: boolean | null;
 }
+export interface BrowserShortcut {
+  target: BrowserTarget;
+  address: BrowserAddress;
+}
 export interface ProcessDetail {
   pid: number;
   ppid: number;

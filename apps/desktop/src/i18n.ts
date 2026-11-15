@@ -46,6 +46,11 @@ export function changeLanguage(language: Language) {
   listeners.forEach((listener) => listener());
 }
 
+export function syncLanguage(systemLanguage?: string) {
+  initializeLanguage(systemLanguage);
+  listeners.forEach((listener) => listener());
+}
+
 export const languageSnapshot = () => state;
 export function subscribeLanguage(listener: () => void) {
   listeners.add(listener);

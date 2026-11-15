@@ -1,5 +1,7 @@
 # DevNook 技术栈
 
+- 菜单栏使用现有 Tauri 2 的 `tray-icon` feature 与平台传递依赖，原生壳负责图标、窗口可见性和内存导航；React 独立快捷面板复用既有 API、lucide 图标、语言及语义 CSS 变量；CoreClient 仅以 GUI 内存短期缓存显式选择服务得到的网页证据，面板读取时经既有 v10 接口复核身份，无批量 HTTP 探测；ResizeObserver 读取内容自然高度，同次展开锁定尺寸，Tauri 以 GUI 内存尺寸和限于 tray 窗口的命令适配 80–520 逻辑高度，无新增 npm 包、业务依赖或数据库迁移。单色 N 模板图标源为 `src-tauri/icons/tray.svg`，使用既有 Tauri icon CLI 导出 36px Retina PNG。
+
 Intel Mac 使用项目隔离 Rust 工具链的 `x86_64-apple-darwin` 标准库、现有 Apple Clang / macOS SDK 与 Tauri 跨架构打包；目标目录与 arm64 分离。x86_64 程序在当前 Apple Silicon 主机上借助已存在的 Rosetta 验证，平台适配仍由原有 macOS API 承担，无新增业务依赖、协议或数据库迁移。
 
 官网采用原生 HTML / CSS / JavaScript 与 Node 标准库静态生成，不新增 npm 包、前端框架或运行时 API。`site/` 同源提供中英文 HTML、语义主题和自有图片；支持 GitHub Pages 项目子路径、移动导航、减少动态效果和存储 / 剪贴板失败降级。发布清单由本地 Release 元数据生成，并在部署前校验；GitHub Actions 的 Pages 官方 Action 固定 commit。Release 使用 thin LTO、`codegen-units = 1` 与 `strip = "symbols"`，沿用默认速度优化和 panic unwind。

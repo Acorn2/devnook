@@ -411,6 +411,11 @@ h1 {
   border-radius: 0.65rem;
   background: var(--surface);
 }
+#tray .feature-preview {
+  width: 100%;
+  max-width: 356px;
+  justify-self: center;
+}
 .feature-preview img {
   width: 100%;
   height: auto;

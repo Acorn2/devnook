@@ -1,10 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use devnook_core::browser::{BrowserAddress, BrowserTarget};
+use devnook_core::browser::{BrowserAddress, BrowserShortcut, BrowserTarget};
 use devnook_core::external_service::{ExternalServiceConfiguration, ExternalServiceHandoffPreview};
 use devnook_core::{access::*, ipc::CoreClient as Core, model::*, service_model::*, workspace::*};
 use std::sync::Arc;
 use tauri::{Manager, State};
+
+mod tray;
 
 async fn run<T: Send + 'static>(
     core: State<'_, Arc<Core>>,
@@ -153,6 +155,13 @@ async fn service_browser_addresses(
     target: BrowserTarget,
 ) -> Result<Vec<BrowserAddress>, String> {
     run(core, move |c| c.service_browser_addresses(&target)).await
+}
+
+#[tauri::command]
+async fn tray_browser_shortcuts(
+    core: State<'_, Arc<Core>>,
+) -> Result<Vec<BrowserShortcut>, String> {
+    run(core, |c| c.tray_browser_shortcuts()).await
 }
 
 #[tauri::command]
@@ -403,9 +412,19 @@ fn main() {
             let core = Core::new_deferred(&directory, std::env::current_exe()?)
                 .map_err(std::io::Error::other)?;
             app.manage(Arc::new(core));
+            // Failure must leave the ordinary main window usable.
+            if tray::setup(app).is_err() {
+                eprintln!("DevNook menu-bar access could not be initialized");
+            }
             Ok(())
         })
+        .on_window_event(tray::window_event)
         .invoke_handler(tauri::generate_handler![
+            tray::open_main_window,
+            tray::take_main_navigation,
+            tray::hide_tray,
+            tray::resize_tray,
+            tray::quit_desktop,
             system_language,
             list_projects,
             get_settings,
@@ -427,6 +446,7 @@ fn main() {
             confirm_stop,
             open_project,
             service_browser_addresses,
+            tray_browser_shortcuts,
             open_service_browser,
             list_services,
             service_drafts,
@@ -454,8 +474,17 @@ fn main() {
             revoke_agent_grant,
             access_audits
         ])
-        .run(tauri::generate_context!())
-        .expect("DevNook 桌面运行失败");
+        .build(tauri::generate_context!())
+        .expect("DevNook 桌面运行失败")
+        .run(|app, event| {
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            } = event
+            {
+                let _ = tray::show_main(app);
+            }
+        });
 }
 
 // Display preference only: this does not contact Core or alter system settings.

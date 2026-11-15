@@ -35,6 +35,7 @@ import {
   managedServiceIdentity,
   relativeServiceDirectory,
   serviceIsActive,
+  serviceStateLabel,
   externalServiceChoices,
   externalPortConflict,
 } from './ServicePresentation';
@@ -62,17 +63,7 @@ import type {
   ExternalServiceConfiguration,
   ExternalServiceHandoffPreview,
 } from './types';
-
-const labels: Record<ServiceState, string> = {
-  STOPPED: '已停止',
-  STARTING: '正在启动',
-  RUNNING: '运行中 · 未就绪',
-  READY: '已就绪',
-  STOPPING: '正在停止',
-  BLOCKED: '启动被阻断',
-  CRASHED: '运行失败',
-  UNKNOWN: '身份待核验',
-};
+import type { MainNavigation } from './TrayPresentation';
 const active = serviceIsActive;
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const date = (value: number) =>
@@ -117,13 +108,15 @@ export function ServiceBadge({ state }: { state?: ServiceState }) {
   return (
     <span className={'service-badge state-' + (state || 'STOPPED').toLowerCase()}>
       <span className="status-dot" />
-      {state ? t(labels[state]) : t('未启动')}
+      {serviceStateLabel(state)}
     </span>
   );
 }
 
 export default function ServicesPage({
   navigation,
+  navigationRequest,
+  navigationHandled,
   projects,
   ports,
   portError,
@@ -142,6 +135,8 @@ export default function ServicesPage({
   notify,
 }: {
   navigation: ReactNode;
+  navigationRequest: MainNavigation | null;
+  navigationHandled: (sequence: number) => void;
   projects: Project[];
   ports: PortBinding[];
   portError: string;
@@ -260,6 +255,75 @@ export default function ServicesPage({
       refreshing.current = false;
     }
   }, [disabled]);
+  const navigationStarted = useRef(0);
+  useEffect(() => {
+    if (
+      !navigationRequest ||
+      disabled ||
+      busy ||
+      editing ||
+      confirmation ||
+      archive ||
+      externalStop ||
+      externalSetup ||
+      choosingHandoff ||
+      handoff ||
+      clearLog ||
+      assignment ||
+      navigationStarted.current >= navigationRequest.sequence
+    )
+      return;
+    const request = navigationRequest;
+    navigationStarted.current = request.sequence;
+    setBusy(true);
+    void (async () => {
+      try {
+        const values = await call<ServiceView[]>('list_services');
+        serviceVersion.current += 1;
+        setServices(values);
+        setFetchError('');
+        setFilter('');
+        setQuery('');
+        if (request.destination.kind === 'managed') {
+          const destination = request.destination;
+          const target = values.find((value) => value.definition.id === destination.id);
+          if (!target) throw new Error(t('服务配置已不存在，请重新选择。'));
+          setSelected(destination.id);
+          if (destination.action)
+            setConfirmation(
+              await call<ServiceActionPreview>('prepare_service_action', {
+                id: destination.id,
+                action: destination.action,
+              }),
+            );
+        } else if (request.destination.kind === 'external') {
+          await refreshPorts();
+          setSelected(`external:${request.destination.pid}`);
+        }
+      } catch (error) {
+        report(error);
+      } finally {
+        setBusy(false);
+        navigationHandled(request.sequence);
+      }
+    })();
+  }, [
+    navigationRequest,
+    navigationHandled,
+    disabled,
+    busy,
+    editing,
+    confirmation,
+    archive,
+    externalStop,
+    externalSetup,
+    choosingHandoff,
+    handoff,
+    clearLog,
+    assignment,
+    refreshPorts,
+    report,
+  ]);
   useEffect(() => {
     void refresh();
     const interval = setInterval(() => void refresh(), 1000);
@@ -1147,7 +1211,7 @@ export default function ServicesPage({
                       { value: 'latest', label: t('最近运行') },
                       ...history.map((run) => ({
                         value: run.id,
-                        label: `${date(run.started_at)} · ${t(labels[run.state])}`,
+                        label: `${date(run.started_at)} · ${serviceStateLabel(run.state)}`,
                       })),
                     ]}
                   />

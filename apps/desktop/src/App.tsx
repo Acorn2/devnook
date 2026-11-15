@@ -31,6 +31,9 @@ import {
   X,
 } from 'lucide-react';
 import { call, native } from './api';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useWindowVisible } from './WindowVisibility';
+import type { MainNavigation } from './TrayPresentation';
 import { LanguageSettings, useLanguage } from './Language';
 import { AppearanceSettings, AppearanceToggle, useAppearance, type Appearance } from './Appearance';
 import ServicesPage from './ServicesPage';
@@ -73,6 +76,8 @@ const time = (value: number) =>
 
 export default function App() {
   const { language } = useLanguage();
+  const windowVisible = useWindowVisible();
+  const [mainNavigation, setMainNavigation] = useState<MainNavigation | null>(null);
   const [page, setPage] = useState<Page>('all');
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -115,6 +120,43 @@ export default function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const portRefresh = useRef<Promise<void> | null>(null);
   const refreshAgain = useRef(false);
+
+  useEffect(() => {
+    if (!native) return;
+    let cancelled = false;
+    let lastSequence = 0;
+    const take = async () => {
+      try {
+        const request = await call<MainNavigation | null>('take_main_navigation');
+        if (!cancelled && request && request.sequence > lastSequence) {
+          lastSequence = request.sequence;
+          setMainNavigation((previous) =>
+            !previous || request.sequence > previous.sequence ? request : previous,
+          );
+        }
+      } catch (error) {
+        if (!cancelled) setError(errorText(error));
+      }
+    };
+    const subscription = getCurrentWindow().listen('devnook:navigate', () => void take());
+    void subscription.then(() => {
+      if (!cancelled) void take();
+    });
+    return () => {
+      cancelled = true;
+      void subscription.then((unlisten) => unlisten());
+    };
+  }, []);
+  useEffect(() => {
+    if (!mainNavigation || batchBusy || actionBusy || scanOpen || editing || removing) return;
+    setPage('services');
+    setServicesView('services');
+    setServiceProjectId('');
+    endBatch();
+  }, [mainNavigation, batchBusy, actionBusy, scanOpen, editing, removing]);
+  const navigationHandled = useCallback((sequence: number) => {
+    setMainNavigation((request) => (request?.sequence === sequence ? null : request));
+  }, []);
 
   useEffect(() => setSearchCollapsedCategories([]), [query]);
 
@@ -233,11 +275,11 @@ export default function App() {
     return portRefresh.current;
   }, []);
   useEffect(() => {
-    if (!coreReady) return;
+    if (!coreReady || !windowVisible) return;
     void refresh();
     const timer = setInterval(() => void refresh(), settings.refresh_seconds * 1000);
     return () => clearInterval(timer);
-  }, [coreReady, refresh, settings.refresh_seconds]);
+  }, [coreReady, windowVisible, refresh, settings.refresh_seconds]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -766,17 +808,23 @@ export default function App() {
                 </header>
               )}
               {servicesView === 'plans' ? (
-                <WorkspacesPage disabled={!coreReady} report={report} notify={notify} />
+                <WorkspacesPage
+                  disabled={!coreReady || !windowVisible}
+                  report={report}
+                  notify={notify}
+                />
               ) : (
                 <ServicesPage
                   navigation={serviceNavigation()}
+                  navigationRequest={mainNavigation}
+                  navigationHandled={navigationHandled}
                   projects={projects}
                   ports={ports}
                   portError={t(portError)}
                   lastRefresh={lastRefresh}
                   refreshingPorts={refreshing}
                   refreshPorts={refresh}
-                  disabled={!coreReady}
+                  disabled={!coreReady || !windowVisible}
                   projectId={serviceProjectId}
                   back={() => navigate('all')}
                   editProject={setEditing}
@@ -2143,7 +2191,7 @@ function SettingsPage({
         />
         <div>
           <strong>
-            DevNook <span>v0.1.1</span>
+            DevNook <span>v0.1.2</span>
           </strong>
           <p>Your Local Development Workspace</p>
           <p>{t('管理本地项目、服务和端口，支持终端命令与可选的 AI 助手接入。')}</p>

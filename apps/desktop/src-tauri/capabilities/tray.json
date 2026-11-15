@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "tray-capability",
+  "description": "菜单栏面板读取现有 Core 事实，仅使用窗口可见性、事件与主题同步。",
+  "windows": ["tray"],
+  "permissions": ["core:default", "core:window:allow-set-theme"]
+}

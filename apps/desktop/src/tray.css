@@ -1,0 +1,337 @@
+.tray-document,
+.tray-document body,
+.tray-document #root {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--panel);
+}
+/* A menu surface must not inherit the main workbench's page padding. */
+main.tray-panel {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  background: var(--panel);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  font-size: calc(13rem / 14);
+  line-height: 18px;
+}
+.tray-scroll-region {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
+.tray-content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.tray-list {
+  padding: 4px 8px;
+}
+.tray-group {
+  margin: 0;
+  padding: 0;
+}
+.tray-group + .tray-group {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 3px;
+}
+.tray-compact-group + .tray-compact-group {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+.tray-compact-group .tray-name-text {
+  font-weight: 500;
+}
+.tray-search {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+}
+.tray-search input {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  outline-offset: 0;
+}
+.tray-search input::placeholder {
+  color: var(--muted);
+}
+.tray-search kbd {
+  white-space: nowrap;
+  font: inherit;
+  font-size: 11px;
+  color: var(--dim);
+}
+.tray-scroll-cue {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  color: var(--muted);
+  background: var(--panel);
+  pointer-events: none;
+}
+.cue-top {
+  top: 0;
+}
+.cue-bottom {
+  bottom: 0;
+}
+.state-unavailable {
+  color: var(--dim);
+}
+.tray-group h2 {
+  height: 20px;
+  line-height: 20px;
+  margin: 0;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: normal;
+}
+.tray-panel .tray-service {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0 2px 0 5px;
+  border-radius: 4px;
+  color: var(--text);
+  background: transparent;
+}
+.tray-panel .tray-service:hover,
+.tray-panel .tray-service:focus-within {
+  background: var(--panel-hover);
+}
+.tray-indicator {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--dim);
+  border-radius: 50%;
+}
+.state-ready .tray-indicator {
+  background: var(--success);
+  border-color: var(--success);
+}
+.state-running .tray-indicator,
+.state-external .tray-indicator {
+  background: var(--cyan);
+  border-color: var(--cyan);
+}
+.state-starting .tray-indicator,
+.state-stopping .tray-indicator,
+.state-unknown .tray-indicator {
+  background: var(--warning);
+  border-color: var(--warning);
+}
+.state-crashed .tray-indicator,
+.state-blocked .tray-indicator {
+  background: var(--danger);
+  border-color: var(--danger);
+  border-radius: 2px;
+}
+.tray-service-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0;
+  text-align: left;
+  white-space: nowrap;
+  line-height: 22px;
+  color: inherit;
+  background: transparent;
+}
+.tray-name-text {
+  min-width: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+}
+.tray-port {
+  min-width: 0;
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: calc(12rem / 14);
+  font-variant-numeric: tabular-nums;
+}
+.tray-state {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: calc(12rem / 14);
+}
+.state-crashed .tray-state,
+.state-blocked .tray-state {
+  color: var(--danger);
+}
+.state-unknown .tray-state {
+  color: var(--warning);
+}
+.tray-service-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 20px);
+  align-items: center;
+  flex-shrink: 0;
+  gap: 1px;
+}
+.tray-browser {
+  grid-column: 1;
+}
+.tray-restart {
+  grid-column: 2;
+}
+.tray-start,
+.tray-stop {
+  grid-column: 3;
+}
+.tray-service-actions > button {
+  grid-row: 1;
+}
+.tray-service-actions:empty {
+  display: none;
+}
+.tray-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+}
+.tray-icon:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-subtle);
+}
+.tray-stop:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+.tray-panel button:focus-visible {
+  outline-offset: -2px;
+}
+.tray-panel button:disabled {
+  opacity: 0.5;
+}
+.tray-footer-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 160px;
+  color: var(--warning);
+  font-size: calc(12rem / 14);
+}
+.tray-footer-status svg {
+  flex-shrink: 0;
+}
+.tray-footer-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tray-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 4px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  font-size: inherit;
+}
+.tray-empty strong {
+  color: var(--text);
+  font-weight: 500;
+}
+.tray-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px;
+  color: var(--muted);
+}
+.tray-inline-button {
+  padding: 0;
+  white-space: nowrap;
+  color: var(--accent);
+  background: transparent;
+  font-size: inherit;
+}
+.tray-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+  padding: 3px 8px 4px;
+}
+.tray-footer-row {
+  display: flex;
+  align-items: center;
+}
+.tray-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: transparent;
+  text-align: left;
+  line-height: 22px;
+  color: var(--text-secondary);
+  font-size: inherit;
+}
+.tray-menu-item:hover:not(:disabled) {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+.tray-menu-item kbd {
+  font: inherit;
+  color: var(--dim);
+}

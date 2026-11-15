@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BrowserTarget {
     Managed { service_id: String },
@@ -26,6 +26,50 @@ pub struct BrowserAddress {
     /// unknown. It never grants control capability or changes process purpose.
     #[serde(default)]
     pub web_ui: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BrowserShortcut {
+    pub target: BrowserTarget,
+    pub address: BrowserAddress,
+}
+
+/// GUI-local evidence from explicitly selected service inspection. Never persisted
+/// or populated by a tray refresh. A changed identity cannot inherit a web hint.
+#[derive(Default)]
+pub(crate) struct BrowserEvidenceCache(HashMap<BrowserTarget, (Instant, Vec<BrowserAddress>)>);
+impl BrowserEvidenceCache {
+    fn remember(&mut self, target: BrowserTarget, addresses: Vec<BrowserAddress>, now: Instant) {
+        self.0
+            .retain(|_, (time, _)| now.duration_since(*time) < Duration::from_secs(120));
+        if self.0.len() >= 64 && !self.0.contains_key(&target) {
+            if let Some(oldest) = self
+                .0
+                .iter()
+                .min_by_key(|(_, (time, _))| *time)
+                .map(|(key, _)| key.clone())
+            {
+                self.0.remove(&oldest);
+            }
+        }
+        self.0.insert(target, (now, addresses));
+    }
+
+    fn pages(&mut self, now: Instant) -> Vec<(BrowserTarget, Vec<BrowserAddress>)> {
+        self.0
+            .retain(|_, (time, _)| now.duration_since(*time) < Duration::from_secs(120));
+        self.0
+            .iter()
+            .filter_map(|(target, (_, addresses))| {
+                let pages: Vec<_> = addresses
+                    .iter()
+                    .filter(|a| a.web_ui == Some(true) && a.url.starts_with("http://"))
+                    .cloned()
+                    .collect();
+                (!pages.is_empty()).then(|| (target.clone(), pages))
+            })
+            .collect()
+    }
 }
 
 fn urls(binding: &PortBinding) -> Vec<String> {
@@ -286,7 +330,74 @@ impl CoreClient {
             current.extend(addresses(target, &[self.inspect(pid)?]));
         }
         choices.retain(|address| checked_address(&current, address).is_ok());
+        self.browser_evidence
+            .lock()
+            .map_err(|_| "网页入口证据暂不可用")?
+            .remember(target.clone(), choices.clone(), Instant::now());
         Ok(choices)
+    }
+
+    /// Read only, with no HTTP requests. Revalidate recent selected-service
+    /// evidence through existing v10 facts before offering a tray shortcut.
+    pub fn tray_browser_shortcuts(&self) -> Result<Vec<BrowserShortcut>, String> {
+        let evidence = self
+            .browser_evidence
+            .lock()
+            .map_err(|_| "网页入口证据暂不可用")?
+            .pages(Instant::now());
+        if evidence.is_empty() {
+            return Ok(vec![]);
+        }
+        let services = if evidence
+            .iter()
+            .any(|(target, _)| matches!(target, BrowserTarget::Managed { .. }))
+        {
+            self.services()?
+        } else {
+            vec![]
+        };
+        let ports = self.ports()?;
+        let mut details = HashMap::new();
+        let mut result = vec![];
+        for (target, pages) in evidence {
+            if let BrowserTarget::Managed { service_id } = &target {
+                if !services.iter().any(|s| {
+                    s.definition.id == *service_id
+                        && s.current_run.as_ref().is_some_and(|r| {
+                            matches!(
+                                r.state,
+                                ServiceState::Starting
+                                    | ServiceState::Running
+                                    | ServiceState::Ready
+                            )
+                        })
+                }) {
+                    continue;
+                }
+            }
+            let mut current = vec![];
+            for pid in ports
+                .iter()
+                .filter(|p| matches(&target, p))
+                .map(|p| p.pid)
+                .collect::<HashSet<_>>()
+            {
+                let detail = details.entry(pid).or_insert_with(|| self.inspect(pid));
+                if let Ok(detail) = detail {
+                    current.extend(addresses(&target, std::slice::from_ref(detail)));
+                }
+            }
+            result.extend(
+                pages
+                    .into_iter()
+                    .filter(|page| checked_address(&current, page).is_ok())
+                    .map(|address| BrowserShortcut {
+                        target: target.clone(),
+                        address,
+                    }),
+            );
+        }
+        Ok(result)
     }
 
     pub fn open_service_browser(
@@ -358,6 +469,42 @@ mod tests {
     }
 
     #[test]
+    fn tray_evidence_is_bounded_expiring_and_never_promotes_unknown_or_non_page() {
+        let mut cache = BrowserEvidenceCache::default();
+        let now = Instant::now();
+        let target = BrowserTarget::External { pid: 42 };
+        let mut address =
+            addresses(&target, &[detail(vec![binding("127.0.0.1", "IPv4")])])[0].clone();
+        for hint in [None, Some(false)] {
+            address.web_ui = hint;
+            cache.remember(target.clone(), vec![address.clone()], now);
+            assert!(cache.pages(now).is_empty());
+        }
+        address.web_ui = Some(true);
+        cache.remember(target.clone(), vec![address.clone()], now);
+        assert_eq!(cache.pages(now).len(), 1);
+        let mut changed = address.clone();
+        changed.fingerprint = "different-start".into();
+        assert!(checked_address(&[changed], &address).is_err());
+        assert!(cache.pages(now + Duration::from_secs(120)).is_empty());
+        for pid in 1..=65 {
+            cache.remember(
+                BrowserTarget::External { pid },
+                vec![address.clone()],
+                now + Duration::from_millis(pid as u64),
+            );
+        }
+        assert_eq!(cache.0.len(), 64);
+        assert!(!cache.0.contains_key(&BrowserTarget::External { pid: 1 }));
+        cache.remember(
+            BrowserTarget::External { pid: 65 },
+            vec![],
+            now + Duration::from_secs(1),
+        );
+        assert_eq!(cache.pages(now + Duration::from_secs(1)).len(), 63);
+    }
+
+    #[test]
     fn address_choices_merge_duplicate_hosts_keep_distinct_ports_and_carry_identity() {
         let mut second = binding("127.0.0.1", "IPv4");
         second.port = 3000;
@@ -396,6 +543,10 @@ mod tests {
         let client =
             CoreClient::new_deferred(&directory, PathBuf::from("/does-not-exist/test-launcher"))
                 .unwrap();
+        assert!(
+            client.tray_browser_shortcuts().unwrap().is_empty(),
+            "cold tray reads must not contact Core or HTTP"
+        );
         let socket = directory.join("core.sock");
         let listener = UnixListener::bind(&socket).unwrap();
         fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
@@ -415,11 +566,12 @@ mod tests {
                 .unwrap()
                 .starts_with("GET / HTTP/1.1\r\n"));
             connection.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 0\r\n\r\n").unwrap();
+            http_listener
         });
         let server = thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(5);
             let mut methods = vec![];
-            while methods.len() < 3 {
+            while methods.len() < 7 {
                 let (mut stream, _) = match listener.accept() {
                     Ok(value) => value,
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -442,7 +594,11 @@ mod tests {
                     "list_ports" => serde_json::to_value(vec![http_binding.clone()]).unwrap(),
                     "inspect_process" => {
                         assert_eq!(request["params"]["pid"], 42);
-                        serde_json::to_value(detail(vec![http_binding.clone()])).unwrap()
+                        let mut current = detail(vec![http_binding.clone()]);
+                        if methods.len() >= 5 {
+                            current.fingerprint = "new-owner".into();
+                        }
+                        serde_json::to_value(current).unwrap()
                     }
                     _ => panic!("unexpected non-read method: {method}"),
                 };
@@ -462,11 +618,32 @@ mod tests {
         assert_eq!(choices.len(), 2);
         assert_eq!(choices[0].url, format!("http://127.0.0.1:{port}/"));
         assert!(choices.iter().all(|choice| choice.web_ui == Some(true)));
+        let shortcuts = client.tray_browser_shortcuts().unwrap();
+        assert_eq!(shortcuts.len(), 1);
+        assert_eq!(shortcuts[0].address, choices[0]);
+        assert!(
+            client.tray_browser_shortcuts().unwrap().is_empty(),
+            "changed identity cannot inherit the page receipt"
+        );
         assert_eq!(
             server.join().unwrap(),
-            ["list_ports", "inspect_process", "inspect_process"]
+            [
+                "list_ports",
+                "inspect_process",
+                "inspect_process",
+                "list_ports",
+                "inspect_process",
+                "list_ports",
+                "inspect_process"
+            ]
         );
-        http_server.join().unwrap();
+        let http_listener = http_server.join().unwrap();
+        http_listener.set_nonblocking(true).unwrap();
+        assert_eq!(
+            http_listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock,
+            "tray refresh must not probe HTTP"
+        );
     }
 
     #[test]

@@ -100,6 +100,14 @@ Under **Services → Startup plans**, combine registered services across project
 
 Review the full plan before starting. Existing services are reused. Failure, cancellation, or stopping a plan acts only on runs created by that attempt, retaining pre-existing runs and instances restarted manually afterward. Saving a plan stores configuration without executing it.
 
+### Quick service access from the menu bar
+
+Click the N icon in the macOS menu bar for compact, single-line services grouped by project: running services, services needing attention, and services in favorite projects. Check actual ports, open a browser entry, normally stop a managed service, or jump to details. Single-service projects use one row; only projects with multiple services receive headings. Each opening sizes to the content and keeps its height and order during refresh. Longer lists scroll above a fixed footer, with arrows indicating more content. Search appears above 12 services, or with ⌘F, and matches projects, services and actual ports. Use arrow keys to select, Enter for details and Escape to close. Browser icons require a recently confirmed single web entry with a current process identity; APIs and unknown ports do not get an icon. Start and restart open the existing confirmation flow in the main window. External services remain distinct; stopping them still requires the checks in their detail view.
+
+![DevNook menu bar panel with demo data](site/assets/tray-dark-en.png)
+
+Closing the main window keeps menu bar access available. Reopen it from the Dock or panel. Quitting DevNook ends the desktop interface while running services continue. The panel shares language and appearance preferences with the main window, and hidden windows pause list refreshes. This describes the current source; published installers follow their release notes.
+
 ### Terminal access, AI assistants, and display preferences
 
 The CLI and optional MCP integration share the desktop’s local backend, project library, service configuration, and run history. Query from a terminal or let a coding assistant read state and logs. MCP is read-only by default; control requires a separate scoped grant and the relevant confirmation flow. See [CLI and AI assistants](#cli-and-ai-assistants) below.

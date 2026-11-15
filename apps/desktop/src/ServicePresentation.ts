@@ -10,6 +10,19 @@ export interface ServiceIdentity {
 export const serviceIsActive = (state?: ServiceState) =>
   !!state && ['STARTING', 'RUNNING', 'READY', 'STOPPING', 'UNKNOWN'].includes(state);
 
+const serviceLabels: Record<ServiceState, string> = {
+  STOPPED: '已停止',
+  STARTING: '正在启动',
+  RUNNING: '运行中 · 未就绪',
+  READY: '已就绪',
+  STOPPING: '正在停止',
+  BLOCKED: '启动被阻断',
+  CRASHED: '运行失败',
+  UNKNOWN: '身份待核验',
+};
+export const serviceStateLabel = (state?: ServiceState) =>
+  t(state ? serviceLabels[state] : '未启动');
+
 // These are display choices, never process ownership or permission to stop one.
 // A user selects an instance; Core independently validates and binds the preview.
 export function externalServiceChoices(
