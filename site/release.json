@@ -4,8 +4,8 @@
     {
       "arch": "aarch64",
       "minMacOS": "12.0",
-      "published": false,
-      "url": null,
+      "published": true,
+      "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.1/DevNook_0.1.1_aarch64.dmg",
       "dmgBytes": 4730761,
       "appBytes": 14978795,
       "sha256": "7b9ca4b2183571a9841a64cc131129167b251cc814534e394ec6ff8d055b6764",
@@ -15,8 +15,8 @@
     {
       "arch": "x86_64",
       "minMacOS": "12.0",
-      "published": false,
-      "url": null,
+      "published": true,
+      "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.1/DevNook_0.1.1_x64.dmg",
       "dmgBytes": 5221961,
       "appBytes": 16034251,
       "sha256": "76394a2e1d27f361f1c9241f525cc6f01b6a2d4ff6b48d959116e10742a3b07e",

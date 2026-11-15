@@ -1206,3 +1206,12 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - 系统 open -n 打开两份新 Release，核对 GUI PID 62631 / 64366 的实际路径；通过原生 AX 只读查看后台已连接及关于页 v0.1.1，未保存设置或操作服务。前后 Core PID 66122、两份配置版本、完整当前运行 / 历史及 runner / 服务微秒身份一致。没有更新 Core、修改真实 MCP 配置 / 授权或启停任何真实服务；不安装 LaunchAgent。
 
 中英文发布说明为 `docs/releases/v0.1.1.md`。本机数据与验证日志保留于忽略目录 `.tmp/release-v0.1.1-20261115/`，不作为产品运行依赖；Apple 公证、Intel 与旧 macOS 真机验收未完成。公开资产与官网下载状态将在上传并实际重新下载核验后再登记。
+
+## v0.1.1 公开资产与下载入口同步（2026-11-15）
+
+- 已将候选源码提交为 `00cea9a58b9eb9bd15bd927c08b932300c210a10` 并推送 `v0.1.1` 标签；在独立 Release 草稿上传 Apple Silicon / Intel DMG 和两份独立校验文件，逐项核对 GitHub 资产状态、大小与 SHA-256 后正式发布为 latest。公开地址为 https://github.com/Acorn2/devnook/releases/tag/v0.1.1 。
+- 从公开下载 URL 重新取得全部四个文件，大小 / SHA-256 与本机及 GitHub digest 一致，两份 shasum -c 均通过。核对 v0.1.0 的资产 ID、文件名、大小、digest、URL 及说明完全一致，未覆盖或删除旧版。两份新应用 Mach-O 的 LC_BUILD_VERSION minos 均为 12.0。
+- 仅在公开校验通过后将 `site/release.json` 两架构设为 published=true，登记准确 v0.1.1 URL；同步中英 README 当前下载与发布说明链接、官网发布文档及 Release 构建示例。保留历史 v0.1.0 体积基线与发布说明。`pnpm site:build` / `pnpm site:check`（8 项、66 个链接 / 资源）及 `git diff --check` 通过。
+- 核对字面量路径、进程与 lsof 后清理本轮临时保留的未运行旧 Release bundle 与新包打包中间程序，保留当前两架构最新 app / DMG / 校验文件及仍被真实 Core / runner 引用的旧 Debug 包。没有退出任何既有 GUI、Core、runner 或服务；从开工基线到公开校验后的配置版本、完整运行 / 历史与内核身份快照一致。
+
+本地下载区通过中英文 × 浅暗 × 375 / 1440 共 8 个布局检查；版本、架构、DMG 体积、SHA-256、签名说明及 URL 与清单一致，无横向溢出，已实际回读桌面 / 手机截图。官网沿用手动 GitHub Pages 发布，部署后需核对公开中英文下载区与两个实际链接。公开下载校验、旧资产保全与服务快照见忽略目录 `.tmp/release-v0.1.1-20261115/`，不作为产品依赖。
