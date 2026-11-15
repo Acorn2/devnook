@@ -1268,5 +1268,13 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 
 - 源码提交 `1b650f812cf66df8e52603d9d413ab11a789034f` 与注释标签 `v0.1.2` 已推送；对应远端 CI `43721260206` 全部成功。四个文件先在独立 Release 草稿核对大小 / GitHub digest 与本机一致，再发布为 latest：https://github.com/Acorn2/devnook/releases/tag/v0.1.2 。
 - 从公开地址重新下载两份 DMG 与两份校验文件，大小 / SHA-256 与本机和 GitHub digest 一致，两份 shasum -c 通过。复核 v0.1.0 / v0.1.1 的 Release 标识、标签、标题、说明、公开状态及全部资产 ID / 文件名 / 大小 / digest / URL 均保持，没有覆盖旧包。两架构 Mach-O 的 LC_BUILD_VERSION minos 均为 12.0；Intel app 16,446,731 字节，DMG 5,386,514 字节，SHA-256 `1442dea91316b1d9d18a6c1572a97311e657c501f6d592408128868645450d38`。
-- 仅在公开下载校验后，更新 `site/release.json` 两架构为 published=true，登记准确 URL；同步 README 中英、官网发布文档与 Release 构建示例，保留历史版本记录。`pnpm site:build` / `pnpm site:check` 的 8 项清单测试与 72 个本地链接 / 资源通过，发布下载区中英 × 浅暗 × 375 / 1440 的 8 个布局检查通过：版本、架构、DMG 体积、SHA-256、签名说明及下载 URL 与清单一致，无横向溢出。官网尚待本次 Pages 部署及线上复核。
+- 仅在公开下载校验后，更新 `site/release.json` 两架构为 published=true，登记准确 URL；同步 README 中英、官网发布文档与 Release 构建示例，保留历史版本记录。`pnpm site:build` / `pnpm site:check` 的 8 项清单测试与 72 个本地链接 / 资源通过，发布下载区中英 × 浅暗 × 375 / 1440 的 8 个布局检查通过：版本、架构、DMG 体积、SHA-256、签名说明及下载 URL 与清单一致，无横向溢出。官网已由 Pages 工作流 `43724116083` 成功部署，线上复核结果见下文。
 - 本机 Core PID 66122、两份服务配置版本、完整当前运行 / 历史及 runner / 服务内核身份前后快照一致，没有操作真实服务。用于演示截图的 web-ui 已通过 localhost 正常停止；本轮重新启动的 site-preview 待线上验证结束后停止。浏览器仍复用同一 TaskSpace，Ego Lite 提示更新，本轮未升级。
+
+
+## v0.1.2 官网部署验收（2026-11-15）
+
+- 发布清单提交 `4a79360b5223c0181508e5ff5a22b3c1032e979d` 的 CI `43723892630` 成功；手动 Pages 工作流 `43724116083` 的 build / deploy 均成功，部署源为同一提交。公开 [中文](https://acorn2.github.io/devnook/) / [English](https://acorn2.github.io/devnook/en/) 已显示菜单栏功能与 v0.1.2 双架构下载。
+- 从公开默认 URL 核对两条语言路由的 HTML 与本地 dist 完全一致；20 个唯一静态链接 / 资源（含四张新菜单栏截图）的字节及 SHA-256 与构建产物一致。Python 3.14 的本机 CA 配置未就绪，HTTP 核验改用系统 curl 的正常 TLS 验证，未关闭证书检查或改动系统配置。线上浏览器另检验中英、浅暗、桌面 / 手机共 4 个场景，版本 / 下载 URL / SHA-256 与发布清单一致，无损坏图片或横向溢出；已回读实际截图，浏览器任务已正常结束。
+- 本轮启动的 web-ui 与 site-preview 均已由 localhost 正常停止。再次核对 Core PID 66122、两份配置版本、完整运行 / 历史及已记录服务 / runner 身份保持一致。公开验证结束后，逐个核对字面量路径、进程和 lsof，将本轮未运行的旧双架构 bundle 备份、公开校验下载副本和已退出的旧 preview 验收应用移入系统废纸篓；保留最新双架构 app / DMG / 校验文件及仍有运行引用的 Debug 包，未永久删除或退出任何用户进程。
+- v0.1.2 为公开 latest，旧 v0.1.0 / v0.1.1 资产保持。安装包仍为 ad-hoc、未公证；原生菜单与 Intel / 旧 macOS 真机未验收边界已写入发布说明。验证 JSON、CI / Pages 日志与截图保留于忽略目录 `.tmp/release-v0.1.2-20261115/`，不作为运行依赖。Ego Lite 提示有更新，未升级。
