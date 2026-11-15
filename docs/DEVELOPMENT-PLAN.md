@@ -1194,3 +1194,15 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - 只为演示采集通过 localhost 启动原本停止的 web-ui 1420（PID 53106），完成后核对身份并停止；保留原 site-preview 4310 与所有既有服务。未升级 / 重启真实 Core、修改真实服务配置或执行任何真实服务控制；未修改 MCP 客户端配置或控制授权。公开网站使用现有手动 GitHub Pages 工作流，部署结果需在推送后核验。
 
 验证记录位于忽略目录 `.tmp/github-site-20261115/`，不作为产品依赖。Ego Lite 提示可更新，本轮未升级。现有原生 Debug 包沿用前轮已通过的构建，本轮不重打包 / 发布 DMG，也未补充 Intel 或旧 macOS 真机验收。
+
+## v0.1.1 双架构 Release 候选（2026-11-15）
+
+- 用户明确授权将最新源码打包发布 GitHub Releases，并更新官网 Apple Silicon / Intel 下载入口，不影响正在运行的服务。沿用已推送的 f1234bc 功能，将 npm workspace / desktop、Cargo workspace / lock、Tauri 配置及关于页版本统一为 0.1.1，不覆盖 v0.1.0 远端资产。
+- 开工确认工作区干净、当前 main 与 origin 一致。核对进程路径与 lsof 后，将两份未运行的旧 Release bundle 移到本轮忽略目录临时保留；运行中的 latest / current / debug 包没有替换。新输出沿用固定 `target/release/bundle/` 与 `target/x86_64-apple-darwin/release/bundle/`。
+- `pnpm tauri build --no-bundle` 与 `MACOSX_DEPLOYMENT_TARGET=12.0 pnpm tauri build --target x86_64-apple-darwin --no-bundle` 通过，分别以 ad-hoc 签名构建 app / DMG。`record-release.mjs` 先登记未公开候选，不生成虚假下载链接；版本、Mach-O 架构及最低 macOS 12.0 检查通过。
+- 两份 DMG 的 hdiutil 完整性、应用 strict / deep 签名校验通过；只读挂载后逐文件 SHA-256 与原应用一致，Applications 链接正确，随后卸载。Apple Silicon：DMG 4,730,761 字节 / app 14,978,795 字节 / SHA-256 `7b9ca4b2183571a9841a64cc131129167b251cc814534e394ec6ff8d055b6764`；Intel：DMG 5,221,961 字节 / app 16,034,251 字节 / SHA-256 `76394a2e1d27f361f1c9241f525cc6f01b6a2d4ff6b48d959116e10742a3b07e`。校验文件分别为 SHA256SUMS / SHA256SUMS-x86_64。
+- Release workspace ARM 92 项通过、5 个既有内部 fixture 忽略。Intel 在本机 Python 3.14 下，4 秒期限的 python_port_and_rust_log_phrase_are_real_checks 在默认并发及串行整套执行均超时；单项 Core 与同一 workspace 产物的最小复现分别通过（约 2.45 / 2.51 秒）。记录运行时启动进程，未将其无证据归因为并发。仅为测试子进程将 PATH 中的 Apple Python 3.9.6 优先，完整 x86_64 / Rosetta workspace 92 项通过、5 个 fixture 忽略；未改产品 / 测试代码或期限。产品默认就绪期限仍为 30 秒，该环境限制同步发布说明。
+- `pnpm check`、`pnpm test:ui`（27 项）、`pnpm format:check`、`cargo fmt --all -- --check` 与 `git diff --check` 通过；未公开候选状态的 `pnpm site:build` / `pnpm site:check` 通过（8 项清单测试、两语言 66 个本地链接 / 资源）。
+- 系统 open -n 打开两份新 Release，核对 GUI PID 62631 / 64366 的实际路径；通过原生 AX 只读查看后台已连接及关于页 v0.1.1，未保存设置或操作服务。前后 Core PID 66122、两份配置版本、完整当前运行 / 历史及 runner / 服务微秒身份一致。没有更新 Core、修改真实 MCP 配置 / 授权或启停任何真实服务；不安装 LaunchAgent。
+
+中英文发布说明为 `docs/releases/v0.1.1.md`。本机数据与验证日志保留于忽略目录 `.tmp/release-v0.1.1-20261115/`，不作为产品运行依赖；Apple 公证、Intel 与旧 macOS 真机验收未完成。公开资产与官网下载状态将在上传并实际重新下载核验后再登记。
