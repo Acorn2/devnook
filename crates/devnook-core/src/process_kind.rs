@@ -175,6 +175,67 @@ fn script_entry<'a>(args: &'a [String], value_options: &[&str]) -> Option<&'a st
     None
 }
 
+/// Positive evidence for promoting a browser shortcut, not proof that `/`
+/// returns HTML. Generic runtimes, API servers and mobile bundlers stay unknown.
+pub(crate) fn browser_entry(executable: Option<&str>, command: &str) -> bool {
+    let Some(executable) = executable else {
+        return false;
+    };
+    let name = basename(executable).to_lowercase();
+    if !matches!(name.as_str(), "node" | "nodejs" | "bun" | "deno") {
+        return false;
+    }
+    if name == "node"
+        && command.strip_prefix("next-server (v").is_some_and(|v| {
+            v.strip_suffix(')').is_some_and(|v| {
+                !v.is_empty()
+                    && v.chars()
+                        .all(|c| c.is_ascii_alphanumeric() || ".-".contains(c))
+            })
+        })
+    {
+        return true;
+    }
+    let line = command
+        .strip_prefix(executable)
+        .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace));
+    let parsed = line
+        .map(|rest| parse_command(&format!("runtime {rest}")))
+        .unwrap_or_else(|| parse_command(command));
+    let Ok(spec) = parsed else { return false };
+    let args = if spec.args.first().is_some_and(|a| a == "run") {
+        &spec.args[1..]
+    } else {
+        &spec.args[..]
+    };
+    let Some(entry) = script_entry(
+        args,
+        &[
+            "-r",
+            "--require",
+            "--import",
+            "--loader",
+            "--experimental-loader",
+            "--conditions",
+        ],
+    ) else {
+        return false;
+    };
+    // Match the actual package entry, never a project dependency, directory name,
+    // another argument mentioning a frontend tool, or an arbitrary server.js.
+    [
+        "/vite/bin/vite.js",
+        "/next/dist/bin/next",
+        "/next/dist/server/lib/start-server.js",
+        "/astro/astro.js",
+        "/nuxi/bin/nuxi.mjs",
+        "/nuxt/bin/nuxt.mjs",
+        "/webpack-dev-server/bin/webpack-dev-server.js",
+    ]
+    .iter()
+    .any(|suffix| entry.ends_with(suffix))
+}
+
 pub(crate) fn classify(
     executable: Option<&str>,
     command: &str,
@@ -420,6 +481,38 @@ mod tests {
             Some("/work/app"),
             &[Path::new("/work/app")],
         )
+    }
+
+    #[test]
+    fn browser_shortcuts_need_an_actual_web_tool_entry_not_just_a_node_service() {
+        for command in [
+            "node /work/app/node_modules/vite/bin/vite.js",
+            "node --require hook.js /work/app/node_modules/vite/bin/vite.js",
+            "node /work/app/node_modules/next/dist/bin/next dev",
+            "node /work/app/node_modules/astro/astro.js dev",
+            "next-server (v16.0.1)",
+        ] {
+            assert!(browser_entry(Some("/bin/node"), command), "{command}");
+        }
+        for command in [
+            "node /work/app/local-server/server.mjs",
+            "node /work/app/backend/server.js",
+            "node /work/app/node_modules/@nestjs/cli/bin/nest.js start",
+            "node server.js --config /work/app/node_modules/vite/bin/vite.js",
+            "node -e 'require(\"vite\")' /work/app/node_modules/vite/bin/vite.js",
+            "node /work/app/node_modules/vite/bin/vite.js.backup",
+            "node /work/app/node_modules/@expo/cli/build/bin/cli",
+            "node /work/app/node_modules/react-native/cli.js",
+            "node /work/app/node_modules/metro/src/cli.js",
+            "next-server (v16.0.1) extra-arguments",
+        ] {
+            assert!(!browser_entry(Some("/bin/node"), command), "{command}");
+        }
+        assert!(!browser_entry(
+            None,
+            "node /work/app/node_modules/vite/bin/vite.js"
+        ));
+        assert!(!browser_entry(Some("/bin/java"), "java -jar backend.jar"));
     }
 
     #[test]

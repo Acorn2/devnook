@@ -244,6 +244,54 @@ impl CoreClient {
     pub fn services(&self) -> Result<Vec<ServiceView>, String> {
         self.invoke("list_services", json!({}))
     }
+    /// Older v10 daemons lack the external-configuration RPC. Only local GUI/CLI
+    /// preview reads may be composed; control confirmations stay in the daemon.
+    pub fn external_service_configuration(
+        &self,
+        pid: u32,
+    ) -> Result<crate::external_service::ExternalServiceConfiguration, String> {
+        match self.invoke("external_service_configuration", json!({"pid":pid})) {
+            Err(error)
+                if error == "未知 Core 操作"
+                    && ["GUI", "CLI"].contains(&self.context.origin.as_str()) => {}
+            result => return result,
+        }
+        let process = self.inspect(pid)?;
+        let projects = self.projects()?;
+        crate::external_service::validate_external_service(&process, &projects)?;
+        let drafts = self.invoke("service_drafts", json!({"project_id":process.project_id}))?;
+        let project = projects
+            .iter()
+            .find(|p| Some(&p.candidate.id) == process.project_id.as_ref())
+            .ok_or("项目归属不存在")?;
+        let mut configuration = crate::external_service::configuration(
+            process.clone(),
+            drafts,
+            false,
+            Path::new(&project.candidate.canonical_path),
+        )?;
+        // Manifest reads may take time. Reject a reused PID, moved process, or
+        // changed listener rather than presenting a draft for an expired snapshot.
+        let current = self.inspect(pid)?;
+        crate::external_service::validate_external_service(&current, &projects)?;
+        let listeners = |detail: &ProcessDetail| {
+            detail
+                .bindings
+                .iter()
+                .map(|b| (b.pid, b.port, b.address.clone(), b.family.clone()))
+                .collect::<std::collections::BTreeSet<_>>()
+        };
+        if current.pid != process.pid
+            || current.fingerprint != process.fingerprint
+            || current.project_id != process.project_id
+            || current.cwd != process.cwd
+            || listeners(&current) != listeners(&process)
+        {
+            return Err("外部服务身份已变化，请重新预览".into());
+        }
+        configuration.process = current;
+        Ok(configuration)
+    }
     pub fn save_service(&self, input: ServiceSave) -> Result<ServiceDefinition, String> {
         self.invoke("save_service", json!({"input":input}))
     }

@@ -4,7 +4,13 @@ import { CircleAlert, Network, Search, ShieldCheck, Square, SquareTerminal } fro
 import { call } from './api';
 import { Modal } from './components';
 import Select from './Select';
-import ServiceBrowser from './ServiceBrowser';
+import ServiceBrowser, {
+  BrowserAddressField,
+  BrowserMenuActions,
+  useServiceBrowser,
+} from './ServiceBrowser';
+import ServiceOptions from './ServiceOptions';
+import type { ServiceIdentity } from './ServicePresentation';
 import type { PortBinding, ProcessDetail, Project } from './types';
 
 export function portNumbers(bindings: PortBinding[]) {
@@ -64,7 +70,8 @@ export function ListeningPorts({
 
 export function ExternalProcessDetail({
   bindings,
-  projects,
+  identity,
+  directory,
   associate,
   disabled,
   stop,
@@ -73,7 +80,8 @@ export function ExternalProcessDetail({
   portsAvailable,
 }: {
   bindings: PortBinding[];
-  projects: Project[];
+  identity: ServiceIdentity;
+  directory: string;
   associate: () => void;
   disabled: boolean;
   stop: () => void;
@@ -82,34 +90,65 @@ export function ExternalProcessDetail({
   portsAvailable: boolean;
 }) {
   const process = bindings[0];
+  const browser = useServiceBrowser({
+    target: { kind: 'EXTERNAL', pid: process.pid },
+    bindings,
+    available: portsAvailable,
+    disabled,
+    report,
+  });
   return (
     <section className="external-service-detail" aria-label={t('外部服务详情')}>
       <div className="service-detail-heading">
         <div className="service-detail-title">
-          <h2>{process.name}</h2>
-          <span className="service-badge state-ready">{t('正在监听')}</span>
+          <h2>{identity.title}</h2>
+          <span className={'service-badge state-' + (portsAvailable ? 'ready' : 'unknown')}>
+            {portsAvailable ? t('正在监听') : t('端口状态未知')}
+          </span>
         </div>
-        <button
-          className="button secondary small"
-          aria-label={t('确认或更改项目归属')}
-          onClick={associate}
-        >
-          {t('项目归属…')}
-        </button>
+        <div className="service-detail-actions">
+          <ServiceBrowser browser={browser} />
+          <ServiceOptions label={t('更多外部服务操作')}>
+            <BrowserMenuActions browser={browser} />
+            <hr />
+            <button className="text-button" disabled={disabled} onClick={configure}>
+              <SquareTerminal size={15} />
+              {t('配置为 DevNook 服务')}
+            </button>
+            <button
+              className="text-button"
+              aria-label={t('确认或更改项目归属')}
+              disabled={disabled}
+              onClick={associate}
+            >
+              {t('项目归属…')}
+            </button>
+            <hr />
+            <button className="text-button danger-text" disabled={disabled} onClick={stop}>
+              <Square size={14} />
+              {t('停止外部服务')}
+            </button>
+          </ServiceOptions>
+        </div>
       </div>
-      <div className="external-service-meta">
-        <span className="external-service-readonly">
+      <div className="service-detail-subtitle">
+        {directory.startsWith('./') && <span>{directory}</span>}
+        <span>
           <ShieldCheck size={13} />
           {t('外部启动 · 尚未托管')}
         </span>
-        <span>{projects.find((p) => p.id === process.project_id)?.name || t('未关联项目')}</span>
-        <span>PID {process.pid}</span>
       </div>
-      <dl className="external-service-facts">
+      <dl className="service-detail-facts">
         <div>
-          <dt>{t('监听地址')}</dt>
+          <dt>{browser.webUi ? t('访问地址') : t('监听地址')}</dt>
           <dd>
-            <ListeningPorts bindings={bindings} compact />
+            {browser.webUi ? (
+              <BrowserAddressField browser={browser} />
+            ) : portsAvailable ? (
+              <ListeningPorts bindings={bindings} compact />
+            ) : (
+              t('端口状态未知')
+            )}
           </dd>
         </div>
         <div>
@@ -125,27 +164,36 @@ export function ExternalProcessDetail({
           </dd>
         </div>
       </dl>
-      <div className="service-actions">
-        <ServiceBrowser
-          key={process.pid}
-          target={{ kind: 'EXTERNAL', pid: process.pid }}
-          bindings={bindings}
-          available={portsAvailable}
-          disabled={disabled}
-          report={report}
-        />
-        <button className="button danger" disabled={disabled} onClick={stop}>
-          <Square size={14} />
-          {t('停止外部服务')}
-        </button>
-        <button className="button secondary" disabled={disabled} onClick={configure}>
-          <SquareTerminal size={15} />
-          {t('配置为 DevNook 服务')}
-        </button>
-      </div>
-      <p className="field-hint">
-        {t('停止前核验身份并要求确认。保存配置不会停止旧服务，是否切换将单独确认。')}
-      </p>
+      {browser.error && (
+        <p className="field-hint" role="status" title={browser.error}>
+          {t('地址读取失败，请从更多菜单重试')}
+        </p>
+      )}
+      <details className="service-runtime-details external-process-details">
+        <summary>{t('进程详情')}</summary>
+        <dl className="service-detail-facts">
+          <div>
+            <dt>{t('运行时')}</dt>
+            <dd>{process.name}</dd>
+          </div>
+          <div>
+            <dt>PID</dt>
+            <dd>{process.pid}</dd>
+          </div>
+          {browser.webUi && (
+            <div>
+              <dt>{t('监听地址')}</dt>
+              <dd>
+                {portsAvailable ? (
+                  <ListeningPorts bindings={bindings} compact />
+                ) : (
+                  t('端口状态未知')
+                )}
+              </dd>
+            </div>
+          )}
+        </dl>
+      </details>
     </section>
   );
 }

@@ -42,6 +42,8 @@ fn deferred_gui_client_survives_incompatible_core_and_retries_without_restarting
                 }
                 Err(e) => panic!("{e}"),
             };
+            // macOS can inherit O_NONBLOCK from the listening socket.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();

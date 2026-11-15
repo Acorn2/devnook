@@ -186,13 +186,7 @@ async fn external_service_configuration(
     core: State<'_, Arc<Core>>,
     pid: u32,
 ) -> Result<ExternalServiceConfiguration, String> {
-    run(core, move |c| {
-        c.invoke(
-            "external_service_configuration",
-            serde_json::json!({"pid":pid}),
-        )
-    })
-    .await
+    run(core, move |c| c.external_service_configuration(pid)).await
 }
 #[tauri::command]
 async fn prepare_external_service_stop(

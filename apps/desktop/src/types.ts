@@ -92,6 +92,7 @@ export interface BrowserAddress {
   url: string;
   pid: number;
   fingerprint: string;
+  web_ui?: boolean | null;
 }
 export interface ProcessDetail {
   pid: number;
@@ -123,6 +124,7 @@ export interface StopPreview {
 export interface ExternalServiceConfiguration {
   process: ProcessDetail;
   draft: ServiceDraft;
+  handoff_supported?: boolean;
 }
 export interface ExternalServiceHandoffPreview {
   token: string;

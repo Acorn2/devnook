@@ -1019,3 +1019,178 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 截图采集通过独立 origin 的内存 invoke 替身展示已有界面：查询返回演示数据，模拟扫描只返回预设候选，不执行真实扫描 / 导入 / 服务启停 / 应用打开。采集期间临时启动原本停止的 `web-ui`（1420，PID 57179），结束后核对身份并停止；既有 `site-preview`（4310）继续供本地审阅，原有运行后台和服务未停止。本轮没有执行打包、提交、推送、部署或公开发布；站点沿用当前未发布的 Release 清单。没有新增业务行为，因此未重跑无关 Rust 测试。Safari / Firefox、GitHub 线上渲染与 Pages 部署尚未实测。
 
 功能覆盖、原稿副本、命令保护、链接检查与界面记录位于 `.tmp/product-story-20261114/`。已有应用图标 / 原生打包文档的独立更新予以保留，仅改官网设计段落。Ego Lite 提示可更新，未升级。
+
+## 服务记录按项目与服务上下文展示（2026-11-14）
+
+- 全局服务列表（包括项目下拉筛选）以项目名称为主标题，下一行保留已保存的服务名、项目相对目录和实际端口；进入单项目页后，以服务名称为主标题。相同服务名可通过不同相对目录区分，项目名加入托管与外部服务搜索。
+- 外部记录不再以 node / java 等进程名作为主标题。项目内使用可核实的相对目录与实际监听端口，缺少组件目录时使用“外部服务 + 实际端口”，不猜测前后端用途；运行时退至辅助行，PID 留在详情。IPv4 / IPv6 重复端口不重复命名，快照不可用时不将旧端口作为当前名称。
+- 新增前端纯展示模块 `ServicePresentation.ts`，托管 / 外部列表、右侧详情和待配置记录共用上下文命名规则。桌面列表调整为 20rem，窄窗口的状态与区分信息允许换行；项目长名称保留完整提示，项目内外部组件标题可换行保留端口。使用既有主题变量与集中词典，语言即时切换保持选择。
+- 更新 `DESIGN.md`，新增 6 项命名与回退测试。改动限于桌面展示、词典、样式与设计 / 开发记录，没有修改 Core、业务配置、协议或持久化格式；保留开工时已有的其他未提交改动。
+
+### 实际验证
+
+| 检查 | 结果 |
+| --- | --- |
+| 类型与构建 | `pnpm check`、最终 `pnpm build` 通过，TypeScript 与 Vite production build 成功 |
+| 界面单测 | `pnpm test:ui` 全部 17 项通过；新增覆盖全局 / 项目上下文、同名不同目录、外部目录与实际端口、双栈去重、快照失效、项目缺失 / 根外目录和中英回退 |
+| 格式与差异 | 本轮修改的 TypeScript / TSX / CSS / 测试文件 Prettier 检查及 `git diff --check` 通过 |
+| 浏览器布局 | 中英 × 浅暗 × 760×560 / 1024×768 / 1280×800 的全局 / 项目列表与托管详情共 24 个场景，以及两种上下文的外部详情共 8 个场景通过；另检查 4 个长项目名 / 长组件路径场景，无整页或服务行横向溢出。已实际查看代表性截图 |
+| 行为与错误路径 | 项目名搜索覆盖托管与外部记录；同名 backend 的 api / jobs 目录、同目录不同端口外部实例、待配置标题与右侧详情一致。实时中英切换保留当前选择；端口读取失败沿用既有行为移除过期外部行、数量显示未知，托管实际监听显示未知；重新读取成功后恢复正确名称与端口 |
+| 隔离与运行错误 | 独立浏览器 origin 中使用内存 invoke 替身，调用白名单只包含系统语言 / 主题及已有只读查询，无真实服务启停 / 配置保存调用；被测场景未捕获 JS 错误或未处理 Promise |
+
+浏览器验收文件位于忽略目录 `.tmp/service-names-20261114/`，不作为产品运行依赖。通过 localhost 临时启动原本停止的 `web-ui` 供隔离页面验收，结束后核对本轮进程身份并停止；其他预览与原生应用继续保留。未重新打包原生应用，未运行无关 Rust 测试，未提交、推送或发布。原生 WebView / Intel / 旧 macOS 未在本轮重测。Ego Lite 提示可更新，本轮未升级。
+
+### 本轮界面的原生重新打包与打开（2026-11-14）
+
+- 用户要求重新打包并打开最新版后，执行 `pnpm tauri build --debug --no-bundle`，TypeScript / Vite 与 Rust 原生构建通过；使用固定 `CARGO_TARGET_DIR=target/latest` 和本机 ad-hoc 签名执行 `pnpm tauri bundle --debug --bundles app`，输出 `target/latest/debug/bundle/macos/DevNook.app`（arm64，约 48.84 MiB）。运行中的 Release GUI 与 debug Core / runner 包未被覆盖。
+- `codesign --verify --strict --deep`、`plutil -lint` 通过。新包主程序 SHA-256 为 `f841b8bd6ca4c27f67aa65e05a2d69e4eb9fd18692d9455e4d8152311ea80ac2`。通过系统 `/usr/bin/open -n` 打开，核对 GUI PID 30883 来自上述 latest 包。
+- 原生辅助功能树确认后台已连接；已进入服务管理，全局托管记录以 `tongliao-universe-ui` 为标题，下一行保留 `backend · ./backend` 与实际 `:5001`；外部记录以 `text-lift`、`devnook` 等项目名为标题，运行时处于辅助行。当前选中 `text-lift`，右侧标题同为 `text-lift`，显示实际 `127.0.0.1:3847`、原命令和工作目录。窗口保持打开供用户查看。
+- 前后只读快照完全一致：原 Core / runner 的 PID、启动时间和路径、托管服务配置版本、运行 ID、READY、PID / PGID、runner 微秒身份、历史和 DEVNOOK 监听 `:5001` 均保持。仅导航到服务列表，没有保存业务配置或发送服务启停请求。
+- 新包启动验证后，再次核对字面量路径与 `lsof` / 进程引用，清理本轮旧 latest 回退包及未运行的打包中间可执行文件。仍在运行的旧 Release GUI / Core 包和双架构公开发行产物保留；未修改发行清单、上传、发布、提交或推送。
+
+构建与身份记录位于忽略目录 `.tmp/service-names-native-20261114/`。本次为本机 Apple Silicon Debug 应用验收，没有执行 Intel 重打包或旧 macOS 真机验收。
+
+## 服务详情操作与 HTTP 默认入口（2026-11-14）
+
+- 按确认方案整理托管与外部详情：顶部集中名称 / 状态与“打开浏览器 + 更多”，非活动托管服务仍以启动为主操作；访问地址、启动命令、工作目录使用统一标签布局。外部副行不重复端口 / PID，运行时、PID、原始监听与地址族进入可展开的进程详情。外部停止、配置和项目归属移入更多菜单，停止单独分隔；沿用原有预览、确认与 Core 资格校验。
+- 重整 `ServiceBrowser.tsx`，一次读取候选供主按钮、地址字段、复制和更多菜单共用。默认只展示 / 打开 Core 返回的 HTTP 候选，每个端口优先 IPv4，单端口不展示常驻下拉，多端口选择不会自动打开。“使用 HTTPS 打开”仅在更多菜单中，匹配当前 HTTP 选择的主机、实际 TCP 端口、PID 与指纹，并提示需要服务已有 TLS。
+- `BrowserPresentation.ts` 仅选择现有候选，不合成新的可打开 URL；HTTP 80 / HTTPS 443 的 URL 标准端口序列化也保持原 TCP 端口。Core 的打开前身份 / 监听复核保持，拒绝过期地址后刷新但不重放请求；打开中阻止重复提交与修改地址。地址读取失败可从更多菜单重试，原诊断保留在提示中；复制失败使用既有错误反馈。
+- 将原有服务 / 日志菜单抽出为共享 `ServiceOptions.tsx`，供外部详情复用；支持点击外部关闭、Escape 回焦点、危险操作分隔与小窗口内部滚动。样式使用现有语义变量，两种语言与主题保持一致；清除本次结构替换后不再使用的旧服务摘要样式。更新 `DESIGN.md`，没有修改 Core、UDS 协议、SQLite、真实服务配置或发布清单。
+
+### 实际验证
+
+| 检查 | 结果 |
+| --- | --- |
+| 类型、构建与格式 | `pnpm check`、`pnpm build`、最终 `pnpm tauri build --debug --no-bundle` 通过；本轮前端文件 Prettier 与 `git diff --check` 通过 |
+| 界面单测 | `pnpm test:ui` 全部 21 项通过；新增 4 项覆盖 HTTP 候选去重 / IPv4 优先、IPv6-only、HTTPS 的主机 / 端口 / PID / 指纹匹配、标准端口序列化 |
+| 布局与菜单 | 中英 × 浅暗 × 760×560 / 1024×768 / 1280×800 的托管 / 外部详情 24 项，以及菜单 / 进程展开 16 项，共 40 项通过，无整页 / 详情横向溢出或菜单越界。代表性桌面、小窗口、菜单和日志截图已回读；最终复制按钮垂直对齐在真实原生窗口检查 |
+| 隔离交互 | 9 组通过：多端口仅列 HTTP / 选择不自动打开；所选 HTTP、HTTPS 和复制端口一致；查询失败 / 重试；重复提交防护；过期身份拒绝后刷新且不重放；TCP 快照失效 / 恢复；剪贴板失败；迁移后的外部配置 / 停止预览请求仍绑定所选 PID；托管打开绑定服务 ID / 已停止服务不采用预期或外部占用端口。均使用内存 invoke / 剪贴板替身，无真实服务启停 / 配置写入，无未处理运行错误 |
+| 打包与包完整性 | 固定 `CARGO_TARGET_DIR=target/current` 执行 `APPLE_SIGNING_IDENTITY=- pnpm tauri bundle --debug --bundles app` 成功；arm64 `.app` 为 51,207,851 字节，ad-hoc 签名 strict / deep 与 Info.plist 校验通过。主程序 SHA-256 为 `2a3957d1c94703f3e018712420be9629d6354197ca556c10bbe64c0ef3ea9b51` |
+| 原生窗口 | 系统 `open -n` 打开 `target/current/debug/bundle/macos/DevNook.app`，PID 54482 路径核对一致。实际原生 AX / 截图确认后台已连接，已选择 `product-video-batch`；右侧只显示 `http://127.0.0.1:4318/` 与复制，顶部为浏览器主按钮和更多，进程详情默认收起。窗口保持打开供用户查看 |
+| 后台与清理 | 前后只读快照完全一致：Core 65870、runner 95832、服务运行 / 配置版本 / PID / PGID / READY / 历史与 DEVNOOK `:5001` 保持。验收临时 `web-ui`（本轮 PID 46331）已核对并停止，浏览器任务结束；current 未运行打包中间二进制已核对并清理，仍运行的旧 latest GUI（30883）及后台包保留，未自动终止 |
+
+本轮记录位于忽略目录 `.tmp/service-details-20261114/`，产品代码和应用包不依赖此目录。正式 Core 与服务只做读取，浏览器打开 / 故障与控制入口的交互测试使用隔离替身；未提交、推送或公开发布。没有重跑无关 Rust 业务测试或重打包 Intel / DMG，Intel 与旧 macOS 真机尚未验收。Ego Lite 提示可更新，本次未升级。
+
+## 后端监听不再突出浏览器入口（2026-11-14）
+
+- 修正将 TCP 监听当作可浏览页面的展示问题：通用 Node / Java / Python 后端或入口不明的服务，详情主区只显示真实监听地址，不出现顶部浏览器按钮，也不生成常驻“访问地址”。更多菜单保留明确标注的“尝试用 HTTP 打开”和需已有 TLS 的 HTTPS 操作；没有自动请求根路径、检测响应或打开浏览器。
+- Core 客户端根据当前进程的实际可执行文件与入口，给已知 Vite / Next / Astro / Nuxt / webpack-dev-server 页面工具增加 `web_ui` 展示提示；不按 Node 运行时、项目依赖、目录名或端口推断页面。自定义网页服务器和缺少元数据的旧响应保守回退为监听信息。提示仅用于 GUI 展示，不代表已验证根路径返回 HTML，不影响服务用途分类或控制权限。
+- 新字段在 GUI 本地组合现有只读接口时产生，没有升级 UDS v10、数据库或 MCP。打开前仍只按 URL / PID / 指纹及当前监听复核；提示变化不会改变控制资格。托管与外部详情共用规则，已确认页面入口优先选择对应候选，避免同端口的未知 IPv4 进程遮盖已知页面的 IPv6 候选。更新架构、设计与项目规则。
+
+### 实际验证
+
+| 检查 | 结果 |
+| --- | --- |
+| 类型、构建与格式 | `pnpm check`、`pnpm build`、`pnpm tauri build --debug --no-bundle`、`cargo check --workspace` 通过；相关前端文件 Prettier、`cargo fmt --all --check` 与 `git diff --check` 通过 |
+| 相关单测 | `pnpm test:ui` 全部 23 项通过；`cargo test -p devnook-core browser` 的 8 项相关测试通过。覆盖真实页面工具入口、通用 Node API、参数伪证、移动打包工具排除、缺失提示降级、已知页面候选优先及身份校验。没有宣称运行完整 Core 测试套件 |
+| 隔离界面 | 中英 × 浅暗 × 760×560 / 1280×800 × 托管 API / 托管网页 / 外部 API / 外部网页，共 32 个场景通过，无整页 / 详情横向溢出或运行错误；已查看代表性截图。同一含 Vite 的演示项目中，后端没有主浏览器入口，网页保留入口；旧提示缺失、刷新恢复、手动 HTTP 操作通过，无自动打开。仅使用内存 invoke 替身 |
+| 打包 | 固定 `CARGO_TARGET_DIR=target/latest`、`APPLE_SIGNING_IDENTITY=-` 执行 `pnpm tauri bundle --debug --bundles app` 成功。arm64 Debug 包 `target/latest/debug/bundle/macos/DevNook.app` 为 51,228,923 字节；strict / deep 签名与 Info.plist 校验通过。主程序 SHA-256 为 `7ef3850ecbdfd9c714836d998a105b24e4f54b6d0733cc085d7669b95188d527` |
+| 原生窗口 | `open -n` 后核对最新 GUI PID 72363 来自 latest 包，后台连接正常。实际 AX / 截图确认 `text-lift` 的主区为 `监听地址 127.0.0.1:3847 IPv4`，没有浏览器主按钮；更多菜单显示“尝试用 HTTP 打开”及提示，未点击打开或服务控制。菜单已收起，窗口留在 `text-lift` 供查看 |
+| 后台与清理 | 前后只读快照完全一致，Core 65870、runner 95832、服务配置版本 / 运行 ID / PID / PGID / READY / 历史及 DEVNOOK `:5001` 不变。临时 `web-ui` PID 69398 核对后停止，浏览器任务结束；旧 latest GUI 已自行退出，核对字面量路径、进程与 lsof 后清理其回退包和打包中间程序。仍运行的 current GUI 54482、Core / runner 所在包及双架构发行产物保留 |
+
+记录位于忽略目录 `.tmp/browser-entry-20261114/`。本轮没有请求真实服务的 HTTP 根路径、修改真实服务配置、停止既有服务、重启 Core、提交、推送或发布。尚未重打包 Intel / DMG 或验收旧 macOS；自定义服务器可能需要从更多菜单手动尝试。Ego Lite 提示可更新，本次未升级。
+
+## 最新服务展示同步到 README 与官网（2026-11-14）
+
+- 依据后续修正后的实际源码，同步中英文 README 和官网：全局按项目名、项目内按服务名展示，同项目服务通过名称 / 相对目录 / 实际端口区分，右侧保持一致；网页入口默认 HTTP，HTTPS 位于更多菜单，命令与目录集中展示，进程详情可展开。明确 API 的非页面根响应与未知入口不同，后者仍可尝试打开，自定义 Node 网页服务器也支持浏览器入口，没有沿用上一轮工具白名单排除自定义页面的表述。
+- 重新采集项目库、导入预览、全局网页服务、API 详情、项目内服务日志、端口详情和启动方案七组界面，中英 × 浅暗共 28 张 1280×800 PNG，替换原 20 张并新增 8 张 API / 日志图。截图直接来自当前 React 页面，使用同一组隔离演示数据；两个同样以 `node server.mjs` 启动的演示服务分别呈现网页与 API 详情，项目内截图以服务名展示。README 与官网复用 `site/assets/` 文件。
+- 官网服务区增加网页入口 / API 详情 / 运行日志的截图切换，保留现有石墨配色与布局；图片、图注、替代文字和两个原图链接同步，主题与预览外观切换保留已选场景。无 JavaScript 时隐藏切换控件，保留默认网页图和原图入口。文案注明截图来自当前源码界面，安装包功能以对应版本的发布说明为准，发行清单与下载信息未改动。
+
+### 实际验证
+
+| 检查 | 结果 |
+| --- | --- |
+| 构建、静态与格式 | `pnpm site:build`、`pnpm site:check` 通过；8 项发布状态测试、双语路由与 66 个本地资源 / 锚点有效。两版 README、站点修改源码的 Prettier 及 `git diff --check` 通过 |
+| README 保全 | 两版各 7 个围栏代码块逐字一致，从“快速开始”起的正文逐字一致，外部链接及顺序一致；两版各 32 个本地文件 / 图片链接有效。中文保护脚本只报本次授权新增的功能术语、图片与折叠结构，以及“同一项目”被分词为“一项”；原始报告保留，逐项对照当前源码核对新增主张，不将功能改写宣称为纯润色保真通过 |
+| 截图 | 28 张文件尺寸均为 1280×800，采集时断言无整页横向溢出或运行错误；已查看中文浅暗网页 / API、英文项目内日志及官网桌面、手机代表性实图。网页示例显示 HTTP / 主按钮，API 示例不显示主浏览器按钮，项目内标题为服务名 |
+| 布局 | 中英 × 浅暗 × 320 / 375 / 414 / 768 / 1024 / 1280 / 1440px，共 28 个场景通过，无整页横向溢出、缺图或小于 44px 的被测按钮 / 语言 / 原图控件 |
+| 图库与交互 | 中英 × 浅暗 × 3 场景，共 12 种图库状态通过；图片、图注、alt、双原图链接及唯一选中状态一致。单独预览主题、网站主题切换保留场景，手机菜单 / Escape 回焦点 / 锚点关闭、MCP 复制和 FAQ 通过，两个架构下载入口仍匹配原发行清单 |
+| 可读性与回退 | 本轮新增区域正文、说明、图注及图库按钮取样最低对比度 6.26:1，仅为取样检查；被测页面无 JS / Promise / CSP 错误。reduced-motion 下平滑滚动为 auto、按钮过渡为 0s；禁用 JavaScript 后默认图片与原图链接有效，图库选择器隐藏 |
+
+本轮只修改两版 README、站点内容 / 模板 / 交互 / 少量图库样式、28 张站点截图及设计 / 开发记录；保留此前应用 / Core 的未提交改动。复用现有 `site-preview`（4310）供本地审阅；临时启动原本停止的 `web-ui`（1420，PID 93156），截图完成后核对身份并停止，浏览器任务已结束。演示 invoke 只返回内存数据，模拟扫描不执行真实扫描 / 导入，真实浏览器打开和服务控制调用被拒绝；未访问真实 Core、修改真实配置、操作原生应用或重打包。发行清单逐字不变，未提交、推送或部署。记录与原稿副本位于忽略目录 `.tmp/docs-service-showcase-20261114/`；Safari / Firefox 与线上 Pages 本轮未验收。Ego Lite 提示可更新，本次未升级。
+
+## 外部服务配置兼容旧 v10 Core（2026-11-14）
+
+- 真实复现截图中的“未知 Core 操作”：正在运行的 Core PID 65870 返回协议 v10，但未实现 `external_service_configuration`；同一服务的进程详情、项目和清单建议读取正常。新 GUI 不会替换已经运行的旧 Core，因此单纯重新打包无法补上后台接口。
+- 在 Core 客户端增加仅供本地 GUI / CLI 的兼容预览：仅在新接口明确返回“未知 Core 操作”时组合 `inspect_process`、`list_projects` 与 `service_drafts`。复用原有外部服务资格校验与草稿构造，读取清单后再次核对 PID / 指纹 / 项目 / 目录 / 监听；其他协议、权限或业务错误不触发回退。清单无法唯一匹配时继续要求用户填写命令，不重放观察命令或复制环境。
+- 配置结果增加可兼容旧响应的 `handoff_supported` 提示。旧后台生成的配置预览标记为 false，表单提前说明只支持保存独立配置，保存后不再请求缺失的切换预览；支持原接口的后台保留独立确认切换流程。停止 / 切换仍在 Core 内维护确认与身份校验，不由客户端模拟，不自动停止后台。
+- 新增 6 项真实 UDS 客户端回归测试，覆盖旧后台只读调用顺序、清单命令、无 / 多匹配时留空、身份与监听变化、项目资格、新后台旧字段兼容、真实错误传播与 MCP 不得回退。完整测试发现既有 deferred 客户端测试夹具在 macOS 下继承 O_NONBLOCK，按生产服务端已有处理补设阻塞模式，消除响应读取竞态。同步架构说明，保留其他既有工作区变更。
+
+### 实际验证
+
+| 检查 | 结果 |
+| --- | --- |
+| Rust | `cargo test -p devnook-core` 完整通过：82 项成功、5 个内部夹具按原设计 ignored；`cargo check --workspace`、`cargo fmt --all --check` 通过 |
+| 前端 | `pnpm check`、`pnpm test:ui` 的 24 项测试、`pnpm build` 通过；本轮前端文件 Prettier 与 `git diff --check` 通过 |
+| 原生构建 | `pnpm tauri build --debug --no-bundle` 通过；固定 `target/latest` 输出、ad-hoc 签名的 `pnpm tauri bundle --debug --bundles app` 成功，strict / deep 签名与 Info.plist 校验通过。主程序 SHA-256：`a8a632598e4307c172706e1e0de3e778c9416e3b3e61fd457cb2ce35d7fa02aa` |
+| 真实旧 Core 验收 | 系统 `open -n` 打开 `target/latest/debug/bundle/macos/DevNook.app`，确认 GUI PID 28722 路径一致。原生 AX / 截图实际确认后台已连接，选中 `product-video-batch :4318`，点击更多 → 配置为 DevNook 服务，成功展示表单及旧后台能力提示，没有“未知 Core 操作”。未唯一识别的启动命令保持留空，窗口保留在预览供用户操作 |
+| 服务保全与清理 | 前后只读快照中的 Core PID、服务配置版本及完整当前运行记录一致，未保存真实服务配置或发送任何停止 / 启动 / 切换请求。核对字面量路径、进程和 lsof 后，清理旧 latest 回退包、未运行的 current 验收包及 latest 中间程序；运行中的 review GUI、Core / runner 包与公开双架构发行产物保留 |
+
+本轮只交付本机 Apple Silicon Debug 修复版，不更新公开发布清单、不提交或推送。旧 Core 仍不具备一键切换托管能力；本轮未在真实工程保存配置或验收真实切换，相关新后台行为由隔离 Core 集成测试覆盖。Intel / DMG 与旧 macOS 未重测。保全记录位于忽略目录 `.tmp/external-config-20261114/`，不作为产品运行依赖。
+
+## 外部服务自定义启动项自动填充（2026-11-14）
+
+- 修正上一轮仅能打开配置表单、仍要求用户重填已知命令的问题。`product-video-batch` 的 `package.json` 已有 `scripts.library = node video-library/server.mjs`；常规服务建议没有选择这个自定义脚本，按 cwd 唯一匹配后仍得到空命令。
+- `service_drafts.rs` 增加外部 Node 服务的清单匹配：在已核验项目内只读检查当前 cwd 的 package.json，将实际运行时 / 完整参数与全部简单脚本匹配，使用清单中的命令生成配置，校验入口文件元数据；不执行命令、不读取入口正文、不复制旧环境。自定义脚本使用脚本名，start / dev / serve 优先使用包名；根目录与组件目录均适用，原有服务建议继续保留。
+- 新 Core 配置接口与旧 v10 客户端兼容路径共用自动填充；后者在本机清单读取完成后再复核身份 / 归属 / 目录 / 监听。Shell、运行时调试 / 求值参数、敏感参数、隐藏 / 依赖 / 根外 / 符号链接 / 缺失入口或不匹配的启动项不直接填入。配置保存与独立确认启动 / 切换的边界保持。
+- 验证：`cargo test -p devnook-core --test external_configuration_client` 8 项通过（新增根目录 / 组件目录自动填充和不可靠输入拒绝）；`cargo test -p devnook-core --test services external_` 的 8 项相关集成测试通过；`cargo check --workspace`、`cargo fmt --all --check`、`git diff --check`、`pnpm tauri build --debug --no-bundle` 通过。本轮没有修改前端源码，没有重复运行完整前端 / Core 测试套件。
+- 固定 `target/current` 输出重新打包本机 arm64 Debug 应用，ad-hoc 签名 strict / deep 与 Info.plist 校验通过。主程序 SHA-256：`085b3dcded3c1f56fb3d711bdb9cae55cc57028c47b47c6631878959ffce7627`。通过系统 `open -n` 打开并核对 GUI PID 49362。
+- 原生 AX 与截图实际确认 `product-video-batch :4318` 的配置表单自动填入 `library`、`node video-library/server.mjs`，运行目录为项目根目录；来源标明 `package.json · scripts.library`，不再显示“无法唯一识别启动方式”。预期端口 4318 在客户端自动填充测试中核验，原生高级区域保持折叠。新窗口保留在已填好的表单，未点击保存或切换。
+- 前后只读快照中的 Core PID 65870、已有服务配置版本与完整当前运行记录一致。核对进程与 lsof 后，清理未运行的 current 打包中间程序及已退出的旧 review 验收包 / 中间程序；仍运行的旧 latest GUI 和 Core / runner 包保留，不覆盖或退出。保全记录位于忽略目录 `.tmp/external-autofill-20261114/`。
+
+没有修改被识别工程的文件、真实业务配置、数据库 schema、公开发行清单或 MCP 能力，没有提交 / 推送 / 发布。本次补全有清单与入口证据的 Node 自定义脚本，无法可靠匹配的服务仍需补充命令；旧 Core 一键切换能力限制保持。Intel / DMG 与旧 macOS 未重测。
+
+## 显式更新后台 Core 并保留活动服务（2026-11-14）
+
+- 用户明确要求将 Core 更新到最新构建，且不得影响正在运行的服务。复用上一轮已签名校验的 `target/current/debug/bundle/macos/DevNook.app`，主程序 SHA-256 为 `085b3dcded3c1f56fb3d711bdb9cae55cc57028c47b47c6631878959ffce7627`；本轮没有重打包或改动业务源码。
+- 更新前检查 SQLite user_version=3，无需迁移；没有 STARTING / ROLLING_BACK / STOPPING 的启动方案，也没有处于启停过渡状态的服务。记录已有两份配置、完整当前运行 / 历史、服务监听与所有相关进程的微秒启动身份；仅一份服务处于 READY，另一份配置尚未启动。重新执行 `cargo test -p devnook-core --test services uds_clients_share_core_and_runner_survives_client_and_core_exit -- --exact` 通过；新包 strict / deep 签名校验通过。
+- 只为这次已授权更新短暂挂起两个经过路径与身份核验的 GUI 刷新，避免它们在 socket 切换间隙抢先拉起旧 Core；在 finally 中恢复。重新核对旧 Core 身份后仅向 PID 65870 发送 SIGTERM，再从 current 包以独立会话启动新 Core PID 66122。协议继续为 v10，连接恢复耗时约 0.148 秒；没有向 runner、服务 PID 或任何进程组发送信号，没有请求服务停止 / 启动 / 重启 / 切换。
+- 连续 17 次采样未发现相关服务进程身份变化，托管 TCP 连接均成功。前后快照逐项比较通过：配置版本、完整当前运行与历史、全部 SERVICE 监听及服务进程 PID / PGID / 微秒身份 / 可执行路径一致。runner 95832 仍是原实例，现由系统接管父进程；服务主 PID 95836、实际监听 PID 95880 和 READY 保持。旧 debug 包仍被原 runner 使用，予以保留。
+- 新 Core 的原生 `external_service_configuration` 请求成功，返回 `handoff_supported=true`，并自动填入 `library` 与 `node video-library/server.mjs`。原生 AX / 截图实际确认桌面已连接，重新读取配置预览后“后台版本不支持一键切换托管”提示消失，改为保存后可单独确认是否切换。只检查表单，没有再次保存配置或执行实际切换；用户已保存的配置保持。
+
+本轮仅替换本机 Core 进程，没有数据库迁移、服务配置写入、系统配置修改、LaunchAgent、提交 / 推送 / 发布。Core 的临时确认状态随重启自然失效，活动服务和原日志由既有 runner 继续维护。操作脚本、前后快照与连续性记录在忽略目录 `.tmp/core-upgrade-20261114/`，不作为产品运行依赖；旧 Core 路径保留了可恢复条件，实际无需回退。
+
+## 已有配置切换入口、准确状态与 AI 交接指引（2026-11-14）
+
+- 按用户已确认方案补齐桌面流程，复用当前 Core 的 external_service_configuration / prepare_external_service_handoff / confirm_external_service_handoff 与既有 CLI/MCP，不修改业务控制逻辑、协议、数据库 schema 或权限。开工已有的未提交改动保留。
+- 服务分组改为“服务配置”；没有 current_run 显示“未启动”，实际 STOPPED 保持“已停止”。本项目外部 SERVICE 占用预期端口时，列表和详情提供明确的切换入口与占用说明；普通启动放在独立菜单项，仍受 Core 端口冲突阻断，不自动停止外部实例。
+- 已保存配置可随时打开内联外部实例选择器：仅在有效快照中展示同项目 OBSERVED + SERVICE，按 PID 去重，必须明确选择，再由 Core 重新读取当前身份并生成绑定 service_id / revision / PID / 指纹的预览。未选、未知快照和操作中禁止提交；候选展示不代表自动关联、停止权限或进程所有权。
+- 外部入口优先选择已有配置，可查看或直接预览切换，不调用 save_service；新建另一份配置须用户显式选择，活动 / UNKNOWN 配置不作为切换目标。预览后聚焦对应保存配置，取消后仍可再次进入。切换确认统一标题和“暂不切换”，保留 PID 确认、短暂中断 / 失败说明，并将 PID 输入固定在小窗口可见确认区；确认过程中仍禁止关闭或重复提交。
+- 服务详情默认折叠的 AI 指引可复制带当前服务 ID 的 CLI 命令及交接说明，明确原 Codex / IDE 会话改走已有配置、查询日志 / 状态、按授权确认启停、任务结束不默认停止及不停止仅复用的既有运行。可直接打开并展开设置高级接入，MCP 区仍默认折叠。不执行复制的命令，不创建授权或配置客户端，不推断 AI 是否已连接；CLI 本机权限、PATH / 源码构建前提和非交互 --yes 条件明确展示。
+- 新增 ServiceHandoff.tsx / ServiceAiGuide.tsx，扩展 ServicePresentation.ts 的纯展示选择与安全命令生成，沿用现有 Select、Modal、主题变量和集中词典。同步 MVP、架构、技术栈、设计、中英文 README 与 PHASE-3 使用说明，无新增依赖、系统配置或公开发布资产。
+
+### 实际验证
+
+| 检查 | 结果 |
+| --- | --- |
+| 类型、构建与格式 | `pnpm check`、`pnpm build`、`pnpm tauri build --debug --no-bundle` 通过；本轮前端文件 / 单测 Prettier 与 `git diff --check` 通过 |
+| 界面单测 | `pnpm test:ui` 全部 27 项通过；新增 3 项覆盖同项目服务候选 / 失效快照 / 按 PID 双栈去重、活动及 UNKNOWN 不可替换、CLI service_id 引用转义、无隐式 --yes / 杀 PID / 凭证以及中英交接说明 |
+| 既有控制边界 | `cargo test -p devnook-cli` 的 8 项集成测试通过；`cargo test -p devnook-core --test services external_` 的 8 项相关测试通过。含 CLI/MCP 共享状态、授权 / 确认 / 撤销 / 审计、MCP 禁止外部控制和外部切换的预检 / 不强杀等路径；均为隔离子进程与临时数据库，没有运行完整 Rust workspace 测试套件 |
+| 浏览器布局 | 使用 ego-browser 的同一隔离 TaskSpace，内存 invoke / 剪贴板替身。中英 × 浅暗 × 760×560 / 1024×768 / 1280×800 的配置展示与两种尺寸的内联选择、确认，共 28 个场景通过，无整页 / 被测详情横向溢出、弹窗越界或操作按钮裁切。实际回读桌面、最小窗口确认与 AI 指引截图；根据小窗口检查固定 PID 输入并复查 |
+| 浏览器交互 | 8 组主路径与 6 组边界通过：普通启动独立、复用现有配置不保存、新建需显式选择、过期身份拒绝、快照失败禁用、模拟失败保留配置 / 旧实例、模拟成功更新同一配置、复制与接入导航无写入；另含明确选择 PID、多实例 / 双栈、旧 Core 限制、活动目标禁用、剪贴板失败、最小窗口选择配置。未捕获运行错误或未处理 Promise；确认和成功使用内存替身，无真实启停请求 |
+| 本机包与原生只读验收 | 固定 `target/review`、ad-hoc 签名构建 `DevNook.app`，strict / deep 签名及 Info.plist 校验通过。主程序 SHA-256 为 `b0bd2ea29a40b2a95b2d3b6f5cf64fea0dc0d45daa432a0a307ed8772486d697`。系统 open -n 打开并核对 GUI PID 90250；原生 AX / 截图确认 library 显示未启动、外部 :4318 独立保留、切换按钮展开选择器且未选时预览禁用。没有选择真实 PID 或请求切换预览 / 确认，窗口保留供用户查看 |
+| 真实服务保全 | 前后只读快照完全一致：Core 66122、两份服务配置版本、完整运行 / 历史、服务 PID 95836、runner 95832 的微秒身份及运行状态保持；没有更新 Core、保存真实配置或启停真实服务。仅本轮通过 localhost 启动原本停止的 web-ui 1420（PID 77506）供隔离验收，结束后核对身份并停止；既有 site-preview 与其他服务保留。ego TaskSpace 已结束，清理本轮未运行的 review 打包中间程序，仍运行的旧包及 Core / runner 包保留 |
+
+本轮交付本机 Apple Silicon Debug GUI，不提交、推送或公开发布，也不修改真实 MCP 客户端配置 / 真实范围授权。实际外部切换未在用户工程执行，行为由隔离 UI 与 Core 测试覆盖；Intel / DMG 与旧 macOS 未重测。验证文件与保全快照位于忽略目录 `.tmp/service-handoff-20261114/`，不作为产品运行依赖。Ego Lite 提示可更新，本轮未升级。
+
+## 切换托管改为只读 PID 与明确按钮确认（2026-11-15）
+
+- 按用户要求，仅调整 `ExternalServiceConfirmation.tsx` 的切换确认交互：PID 只读展示，按钮改为“停止旧实例并以托管方式重启”；打开预览或取消均不执行切换。不要求手输 PID，但仍保留独立确认弹窗。单独“停止外部服务”仍须输入匹配的 PID。
+- 不改变 Core、请求协议、配置或权限；确认仍提交预览绑定的 token 与 confirmedPid，由既有 Core 核验进程身份、配置 / 依赖版本及监听。令牌过期禁用确认，执行中禁止重复提交和关闭。同步英文词典、MVP、架构、技术栈、设计及 PHASE-3 说明；保留开工前未提交变更。
+- 实际验证：`pnpm check`、`pnpm test:ui`（27 项）、`pnpm build`、`pnpm tauri build --debug --no-bundle`、变更前端文件 Prettier 检查与 `git diff --check` 通过。Core 源码未变，本轮未重跑 Rust 完整测试。
+- ego-browser 隔离内存替身验证中英 × 浅暗 × 760×560 / 1280×800 共 8 个确认布局，无横向溢出、弹窗越界或按钮裁切；实际回读中文浅色桌面及英文暗色小窗口截图。交互确认无手输框、预览 / 取消无控制请求、过期阻断、独立停止的空 / 错 / 正确 PID 规则保持、忙碌时防重复及 Escape 关闭阻断；明确点击仅提交原 token 与 confirmedPid，无运行错误或未处理 Promise。没有调用真实切换或停止接口。
+- 固定 `target/latest` 输出本机 arm64 Debug GUI，ad-hoc 签名 strict / deep 与 Info.plist 校验通过。主程序 SHA-256 为 `42ed342e51bff90734adec44c717a9e73b6af2565a1626e2438d425c24ba937a`；系统 open -n 打开，核对 GUI PID 40444 与包路径。原生真实切换未执行；确认界面的交互由上述隔离页面验证。
+- 前后只读快照完全一致：Core 66122、两份配置版本、完整当前运行及历史、服务 95836 / runner 95832 的微秒身份保持。未更新 Core、保存真实配置或启停既有服务；仅本轮通过 localhost 启动原本停止的 web-ui 1420（PID 35751）供隔离测试，结束后核对身份并停止。ego TaskSpace 已结束；核对进程 / lsof 后清理未运行旧 latest 包与打包中间程序，正在使用的 current / review / runner 包保留。
+
+验证文件在忽略目录 `.tmp/handoff-confirm-20261115/`，不作为产品运行依赖。无新增依赖、真实 MCP 配置 / 授权写入、提交 / 推送或公开发布；Intel / DMG 与旧 macOS 未重测。Ego Lite 提示可更新，本轮未升级。
+
+## 本机改动提交与官网内容同步（2026-11-15）
+
+- 用户明确要求将现有本机改动提交并推送 GitHub，同时更新官网。范围包含开工前累积的服务展示、网页入口识别、旧 Core 配置兼容、自定义 Node 清单自动填充、已有配置切换及 AI 交接指引；不修改公开 v0.1.0 双架构安装包、版本清单或校验值。
+- 官网中英文补充已有配置复用、配置 / 外部运行状态区别，以及“切换是否停止旧实例”和“AI 是否仍能管理”的 FAQ。明确切换按钮才执行停止旧实例与托管重启、Core 复核身份、短暂中断及失败边界；CLI / MCP 指引不自动配置客户端，聊天结束不默认停止服务。页面注明展示当前源码能力，安装包以对应版本发布说明为准。
+- 使用最新版真实 React 界面与只读内存替身重新采集 28 张中英 / 浅暗演示截图，更新项目、服务、端口、扫描与启动方案素材；没有连接真实 Core 或使用用户项目截图。服务截图使用“服务配置”“未启动”及 AI 指引入口，网页 / API / 日志切换保持对应说明与原图链接。
+- 实际验证：`pnpm test` 的 Rust workspace 92 项通过、5 项按既有条件忽略；`pnpm check`、`pnpm format:check`、`pnpm test:ui`（27 项）、`cargo fmt --all -- --check`、`pnpm check:rust`、`pnpm build`、官网源码 Prettier 与 `git diff --check` 通过。`pnpm site:build` / `pnpm site:check` 通过，含 8 项发布清单测试及两语言的 66 个本地链接 / 资源。
+- ego-browser 检查两语言 × 浅暗 × 320 / 375 / 414 / 768 / 1024 / 1280 / 1440，共 28 个布局，无整页横向溢出、图片缺失或运行 / CSP 错误；12 个服务截图切换状态的 alt、说明、主题、语言与原图链接一致。新增两条 FAQ 在中英文手机宽度可展开，已实际回读中文桌面服务区与英文手机 FAQ 截图。
+- 只为演示采集通过 localhost 启动原本停止的 web-ui 1420（PID 53106），完成后核对身份并停止；保留原 site-preview 4310 与所有既有服务。未升级 / 重启真实 Core、修改真实服务配置或执行任何真实服务控制；未修改 MCP 客户端配置或控制授权。公开网站使用现有手动 GitHub Pages 工作流，部署结果需在推送后核验。
+
+验证记录位于忽略目录 `.tmp/github-site-20261115/`，不作为产品依赖。Ego Lite 提示可更新，本轮未升级。现有原生 Debug 包沿用前轮已通过的构建，本轮不重打包 / 发布 DMG，也未补充 Intel 或旧 macOS 真机验收。

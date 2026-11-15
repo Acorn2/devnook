@@ -117,6 +117,128 @@ pub fn display_command(spec: &CommandSpec) -> String {
         .join(" ")
 }
 
+/// Match a custom package script to a verified running Node entry. The command
+/// comes from the manifest, never from replaying ps output or the old environment.
+pub(crate) fn external_node_command(
+    process: &crate::model::ProcessDetail,
+    root: &Path,
+) -> Option<(CommandSpec, String, String)> {
+    let cwd = Path::new(process.cwd.as_deref()?);
+    if root.canonicalize().ok()?.as_path() != root
+        || cwd.canonicalize().ok()?.as_path() != cwd
+        || !cwd.starts_with(root)
+    {
+        return None;
+    }
+    let mut checked = root.to_path_buf();
+    for component in cwd.strip_prefix(root).ok()?.components() {
+        let std::path::Component::Normal(name) = component else {
+            return None;
+        };
+        if name.to_str()?.starts_with('.') || name == "node_modules" || name == "vendor" {
+            return None;
+        }
+        checked.push(name);
+        if std::fs::symlink_metadata(&checked)
+            .ok()?
+            .file_type()
+            .is_symlink()
+        {
+            return None;
+        }
+    }
+    let executable = process.executable.as_deref()?;
+    let runtime = Path::new(executable).file_name()?.to_str()?;
+    if !["node", "nodejs"].contains(&runtime) {
+        return None;
+    }
+    // ps loses argv boundaries. Strip a known executable path (possibly with
+    // spaces), then require exact argument equality with a simple manifest command.
+    let observed = process
+        .command
+        .strip_prefix(executable)
+        .filter(|rest| rest.starts_with(char::is_whitespace))
+        .map(|rest| parse_command(&format!("{runtime} {rest}")))
+        .unwrap_or_else(|| parse_command(&process.command))
+        .ok()?;
+    if Path::new(&observed.executable).file_name()?.to_str()? != runtime {
+        return None;
+    }
+    let manifest: Value = serde_json::from_str(&read_manifest(&cwd.join("package.json"))?).ok()?;
+    let scripts = manifest.get("scripts")?.as_object()?;
+    let mut matches = Vec::new();
+    for (name, text) in scripts {
+        let Some(spec) = text.as_str().and_then(|text| parse_command(text).ok()) else {
+            continue;
+        };
+        if ![runtime, "node", "nodejs"].contains(&spec.executable.as_str())
+            || spec.args != observed.args
+        {
+            continue;
+        }
+        // No eval, loaders, debugger flags, arbitrary installed CLIs or guessed
+        // shell semantics. File metadata proves the entry stays inside the project.
+        let Some(entry) = spec.args.first().filter(|arg| !arg.starts_with('-')) else {
+            continue;
+        };
+        let entry = Path::new(entry);
+        if !matches!(
+            entry.extension().and_then(|s| s.to_str()),
+            Some("js" | "mjs" | "cjs" | "ts" | "mts" | "cts")
+        ) {
+            continue;
+        }
+        let path = if entry.is_absolute() {
+            entry.to_path_buf()
+        } else {
+            cwd.join(entry)
+        };
+        let Ok(relative) = path.strip_prefix(root) else {
+            continue;
+        };
+        let mut checked = root.to_path_buf();
+        let safe = relative.components().all(|part| {
+            let std::path::Component::Normal(name) = part else {
+                return false;
+            };
+            if name.to_string_lossy().starts_with('.') || name == "node_modules" || name == "vendor"
+            {
+                return false;
+            }
+            checked.push(name);
+            std::fs::symlink_metadata(&checked).is_ok_and(|m| !m.file_type().is_symlink())
+        });
+        let command = display_command(&spec);
+        if !safe
+            || !plain_file(&path)
+            || spec
+                .args
+                .iter()
+                .any(|arg| crate::process::redact_command(arg) != *arg)
+            || crate::process::redact_command(&command) != command
+        {
+            continue;
+        }
+        let service_name = if ["start", "dev", "serve"].contains(&name.as_str()) {
+            manifest
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or(name)
+                .to_string()
+        } else {
+            name.clone()
+        };
+        matches.push((spec, service_name, format!("package.json · scripts.{name}")));
+    }
+    // Aliases are safe only when they describe the exact same command; choose
+    // a stable name rather than clearing an otherwise unambiguous launch entry.
+    let first = matches.first()?;
+    if matches.iter().any(|item| item.0 != first.0) {
+        return None;
+    }
+    matches.into_iter().next()
+}
+
 fn suggestion(path: &Path, root: &Path) -> Option<(CommandSpec, String)> {
     if read_manifest(&path.join("package.json"))
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())

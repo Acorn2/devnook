@@ -1,5 +1,69 @@
 // Chinese source messages are stable catalog keys; runtime data is never translated.
 export const english: Record<string, string> = {
+  '将停止的外部进程：': 'External process to stop:',
+  停止旧实例并以托管方式重启: 'Stop old instance and restart under DevNook',
+
+  '输入 PID {{0}} 以确认': 'Enter PID {{0}} to confirm',
+
+  '托管后仍可让 Codex 或其他 AI 助手通过 CLI / MCP 管理服务。先在服务详情复制当前服务的交接指引，再完成需要的接入；服务不会随聊天结束自动停止。':
+    'After switching to DevNook, Codex or another AI assistant can still manage the service through CLI / MCP. Copy its handoff instructions from the service details, then set up access. Ending a chat does not automatically stop the service.',
+  '切换为 DevNook 托管？': 'Switch to DevNook management?',
+  '若旧实例由 Codex 或 IDE 维护，请先告知原会话改用 DevNook CLI / MCP，避免重复拉起。切换后仍可由已接入的 AI 助手管理。':
+    'If Codex or an IDE maintains the old instance, tell that session to use DevNook CLI / MCP first to avoid duplicate starts. A connected AI assistant can continue managing the service.',
+  暂不切换: 'Keep current instance',
+  '无法访问剪贴板，请手动选择文字复制。':
+    'Clipboard unavailable. Select and copy the text manually.',
+  '已复制 AI 管理指引': 'AI management instructions copied',
+  '让 AI 继续管理此服务': 'Let AI continue managing this service',
+  'DevNook 维持服务运行，你和 AI 助手可通过同一份配置操作。关闭 AI 会话或桌面窗口不会自动停止服务。':
+    'DevNook keeps the service running. You and your AI assistant can use the same configuration. Closing the AI session or desktop window does not automatically stop it.',
+  '先将交接说明发给原 Codex 或 IDE 会话，避免它重新拉起旧实例。DevNook 不会自动通知或配置 AI 客户端。':
+    'Send the handoff instructions to the original Codex or IDE session so it does not restart the old instance. DevNook does not automatically notify or configure AI clients.',
+  '复制给 AI 助手': 'Copy instructions for AI',
+  '查看 CLI / MCP 接入': 'Set up CLI / MCP access',
+  '当前服务的 CLI 命令': 'CLI commands for this service',
+  'CLI 按本机用户权限执行；未加入 PATH 时使用已确认的绝对路径，源码运行可先执行 pnpm build:cli。启停需确认，非交互 --yes 仅用于已授权操作。':
+    'CLI runs with the local user permissions. Use its verified absolute path if it is not on PATH; source builds can run pnpm build:cli first. Control actions require confirmation; use non-interactive --yes only for authorized actions.',
+  'MCP 默认只读。控制服务需在设置中明确创建范围授权并配置客户端；启动和重启仍使用短期确认。此处不会创建授权或执行命令。':
+    'MCP is read-only by default. Service control requires an explicit scoped grant in Settings and client setup. Starting and restarting still use short-lived confirmations. Nothing here creates grants or executes commands.',
+  选择外部实例切换托管: 'Choose an external instance to switch',
+  要替换的外部实例: 'External instance to replace',
+  '请选择外部实例…': 'Choose an external instance…',
+  '同项目的监听仅供选择，不代表已关联或可以停止。下一步由 Core 重新核验身份，展示旧实例和现有配置，再单独确认。':
+    'Listeners in the same project are choices only; they are not automatically associated or eligible to stop. Core rechecks identity, then shows the old instance and saved configuration for separate confirmation.',
+  预览切换: 'Preview switch',
+  使用已有服务配置: 'Use a saved service configuration',
+  '此项目已有配置，可直接预览切换，无需重复保存。选择不会停止外部实例。':
+    'This project has saved configurations. Preview a switch without saving another copy. Selecting one does not stop the external instance.',
+  选择已有配置: 'Saved configuration',
+  '请选择服务配置…': 'Choose a service configuration…',
+  已有活动运行: 'Already active',
+  '当前后台不支持切换托管；可先查看已有配置，更新 Core 后再预览。':
+    'This background version cannot switch service management. View the saved configuration, update Core, then preview again.',
+  '新建另一份配置…': 'Create another configuration…',
+  查看已有配置: 'View saved configuration',
+  '此服务已登记在 DevNook，后续通过已有配置管理。':
+    'This service is registered in DevNook. Manage it through its saved configuration.',
+  '优先使用已连接的 DevNook MCP；未接入时使用 CLI，先确认可执行文件路径。':
+    'Prefer a connected DevNook MCP server. Otherwise use CLI after verifying the executable path.',
+  '先查询状态和日志；需要启停或重启时，按用户指令及现有预览、确认和授权规则执行。':
+    'Check status and logs first. Start, stop or restart only as instructed by the user, following existing preview, confirmation and authorization rules.',
+  '不要重复执行旧终端启动命令、直接终止 PID，或因旧终端退出而自动拉起另一份服务。':
+    'Do not repeat the old terminal launch command, terminate PIDs directly, or start another instance because the old terminal exited.',
+  '任务结束不默认停止服务，尤其不要停止只是复用的既有运行。':
+    'Do not stop services by default when a task ends, especially existing runs that were only reused.',
+  '配置或启动方式改变时，先提示核对 DevNook 配置。':
+    'If configuration or launch instructions change, ask the user to review the DevNook configuration first.',
+  'CLI 未加入 PATH 时，替换为已确认的绝对路径。非交互写操作仅在得到具体操作授权后使用 --yes。':
+    'If CLI is not on PATH, substitute its verified absolute path. Use --yes for non-interactive writes only after the specific action is authorized.',
+  未启动: 'Not started',
+  服务配置: 'Service configurations',
+  '切换…': 'Switch…',
+  '切换为托管…': 'Switch to DevNook…',
+  '普通启动…': 'Start normally…',
+  '预期端口由本项目的外部实例占用；此配置尚未接管该实例。普通启动不会关闭外部服务。':
+    'An external instance in this project is using an expected port. This configuration has not taken over that instance. Starting normally will not stop the external service.',
+
   '终端命令（CLI）': 'Terminal commands (CLI)',
   '在终端或脚本中查看服务、读取日志、启动已保存的启动方案。CLI 与桌面共用项目、配置和运行记录。':
     'Inspect services, read logs, and start saved plans from a terminal or script. The CLI shares projects, configuration, and run history with the desktop app.',
@@ -490,6 +554,24 @@ export const english: Record<string, string> = {
   '实际 TCP 监听地址': 'Actual TCP listening addresses',
   外部服务详情: 'External service details',
   正在监听: 'Listening',
+  访问地址: 'Access URL',
+  运行时: 'Runtime',
+  复制访问地址: 'Copy access URL',
+  '当前窗口无法访问剪贴板，请手动选择地址复制。':
+    'Clipboard is unavailable in this window. Select and copy the URL manually.',
+  地址已复制: 'URL copied',
+  更多外部服务操作: 'More external service actions',
+  '使用 HTTPS 打开': 'Open with HTTPS',
+  '尚未确认网页入口，可尝试在浏览器中打开。':
+    'The page entry is unconfirmed. You can try opening it in your browser.',
+  '尝试用 HTTP 打开': 'Try opening with HTTP',
+  '尝试用 HTTP 打开 :{{0}}': 'Try HTTP on :{{0}}',
+  '未确认页面入口，仅尝试访问 HTTP 根地址。':
+    'No page entry is confirmed. This only attempts to open the HTTP root URL.',
+  '正在读取访问地址…': 'Reading access URL…',
+  '地址读取失败，请从更多菜单重试': 'Unable to read the URL. Retry from More actions.',
+  '仅在服务已启用 TLS 时使用；不会自动检测或启用 HTTPS。':
+    'Use only when the service has TLS enabled. HTTPS is not detected or enabled automatically.',
   确认或更改项目归属: 'Confirm or change project ownership',
   '项目归属…': 'Project…',
   '外部启动 · 尚未托管': 'Externally launched · Not managed',
@@ -527,6 +609,10 @@ export const english: Record<string, string> = {
   启动被阻断: 'Startup blocked',
   运行失败: 'Run failed',
   身份待核验: 'Identity unverified',
+  '配置已保存，旧服务继续运行；当前后台版本不支持一键切换托管':
+    'Configuration saved. The old service keeps running; this background version does not support switching to DevNook management.',
+  '。当前后台版本支持保存独立配置，但不支持一键切换托管。请自行核对环境变量，原服务继续运行。':
+    '. This background version supports saving a separate configuration, but cannot switch the running service to DevNook management. Review environment variables yourself; the original service keeps running.',
   '配置已保存，旧服务继续运行；是否切换请单独确认':
     'Configuration saved. The old service is still running; switching requires separate confirmation.',
   '配置已保存，未停止旧实例或启动新服务：':
@@ -558,6 +644,7 @@ export const english: Record<string, string> = {
   '根目录脚本可能同时启动多个服务，请避免重复启动。':
     'Root scripts may start several services. Avoid launching the same service twice.',
   外部服务: 'External services',
+  '外部服务 · {{0}}': 'External service · {{0}}',
   未知: 'Unknown',
   '关联服务…': 'Associate…',
   外部: 'External',

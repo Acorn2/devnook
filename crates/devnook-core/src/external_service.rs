@@ -1,6 +1,6 @@
 //! Explicit external-to-managed replacement. Saving a draft never adopts a PID.
 use crate::{
-    model::{now, ProcessDetail, ProcessKind, StopPreview},
+    model::{now, ProcessDetail, ProcessKind, Project, StopPreview},
     process,
     service_drafts::ServiceDraft,
     service_model::*,
@@ -17,6 +17,13 @@ use std::{
 pub struct ExternalServiceConfiguration {
     pub process: ProcessDetail,
     pub draft: ServiceDraft,
+    /// Whether the connected daemon supports the separate, confirmed handoff.
+    #[serde(default = "handoff_supported")]
+    pub handoff_supported: bool,
+}
+
+fn handoff_supported() -> bool {
+    true
 }
 
 #[cfg(test)]
@@ -116,28 +123,99 @@ fn exited(previous: &ProcessDetail) -> Result<bool, String> {
     }
 }
 
+// Shared with the local client compatibility path; an old daemon must not relax
+// project, cwd, or service-purpose checks just because it lacks the newer RPC.
+pub(crate) fn validate_external_service(
+    detail: &ProcessDetail,
+    projects: &[Project],
+) -> Result<(), String> {
+    if detail.source != "OBSERVED"
+        || !detail
+            .bindings
+            .iter()
+            .any(|b| b.process_kind == ProcessKind::Service)
+    {
+        return Err("当前进程不是可配置的外部项目服务，请刷新后重试".into());
+    }
+    let project = projects
+        .iter()
+        .find(|p| Some(&p.candidate.id) == detail.project_id.as_ref())
+        .ok_or("请先确认外部服务的项目归属")?;
+    let cwd = detail.cwd.as_deref().ok_or("无法核验外部服务工作目录")?;
+    if !Path::new(cwd).starts_with(&project.candidate.canonical_path)
+        || !["HIGH", "MANUAL"].contains(&detail.confidence.as_str())
+    {
+        return Err("外部服务工作目录与已确认项目不符".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn configuration(
+    process: ProcessDetail,
+    drafts: Vec<ServiceDraft>,
+    handoff_supported: bool,
+    project_root: &Path,
+) -> Result<ExternalServiceConfiguration, String> {
+    let project_id = process.project_id.as_deref().ok_or("项目归属不存在")?;
+    let cwd = process.cwd.clone().ok_or("工作目录不可用")?;
+    let mut matching = drafts
+        .into_iter()
+        .filter(|d| d.definition.working_directory == cwd);
+    let first = matching.next();
+    let mut draft = match (first, matching.next()) {
+        (Some(draft), None) => draft,
+        _ => ServiceDraft {
+            definition: ServiceDefinition {
+                id: String::new(),
+                project_id: project_id.into(),
+                name: process.name.clone(),
+                runtime_type: "OTHER".into(),
+                executable: String::new(),
+                args: vec![],
+                shell_mode: false,
+                working_directory: cwd,
+                environment: Default::default(),
+                secret_keys: vec![],
+                expected_ports: vec![],
+                dependencies: vec![],
+                readiness: Readiness::default(),
+                stop_grace_seconds: 5,
+                log_limit_kb: 1024,
+                revision: String::new(),
+                created_at: 0,
+                updated_at: 0,
+            },
+            command: String::new(),
+            source: "无法从当前工作目录唯一识别启动方式，请填写可重复执行的命令".into(),
+        },
+    };
+    if let Some((spec, name, source)) =
+        crate::service_drafts::external_node_command(&process, project_root)
+    {
+        draft.definition.name = name;
+        draft.definition.runtime_type = "NODE".into();
+        draft.definition.executable = spec.executable.clone();
+        draft.definition.args = spec.args.clone();
+        draft.definition.shell_mode = false;
+        draft.command = crate::service_drafts::display_command(&spec);
+        draft.source = source;
+    }
+    draft.definition.expected_ports = ports(&process).into_iter().collect();
+    // Only a manifest-backed suggestion; never copy ps output, env or IDE flags.
+    draft
+        .source
+        .push_str("；预期端口来自本次外部监听，保存前请核对");
+    Ok(ExternalServiceConfiguration {
+        process,
+        draft,
+        handoff_supported,
+    })
+}
+
 impl Core {
     fn external_service(&self, pid: u32) -> Result<ProcessDetail, String> {
         let detail = self.inspect(pid)?;
-        if detail.source != "OBSERVED"
-            || !detail
-                .bindings
-                .iter()
-                .any(|b| b.process_kind == ProcessKind::Service)
-        {
-            return Err("当前进程不是可配置的外部项目服务，请刷新后重试".into());
-        }
-        let project = self
-            .projects()?
-            .into_iter()
-            .find(|p| Some(&p.candidate.id) == detail.project_id.as_ref())
-            .ok_or("请先确认外部服务的项目归属")?;
-        let cwd = detail.cwd.as_deref().ok_or("无法核验外部服务工作目录")?;
-        if !Path::new(cwd).starts_with(&project.candidate.canonical_path)
-            || !["HIGH", "MANUAL"].contains(&detail.confidence.as_str())
-        {
-            return Err("外部服务工作目录与已确认项目不符".into());
-        }
+        validate_external_service(&detail, &self.projects()?)?;
         Ok(detail)
     }
 
@@ -161,46 +239,18 @@ impl Core {
         pid: u32,
     ) -> Result<ExternalServiceConfiguration, String> {
         let process = self.external_service(pid)?;
-        let project_id = process.project_id.as_deref().ok_or("项目归属不存在")?;
-        let cwd = process.cwd.clone().ok_or("工作目录不可用")?;
-        let mut matching = self
-            .service_drafts(project_id)?
+        let drafts = self.service_drafts(process.project_id.as_deref().ok_or("项目归属不存在")?)?;
+        let project = self
+            .projects()?
             .into_iter()
-            .filter(|d| d.definition.working_directory == cwd);
-        let first = matching.next();
-        let mut draft = match (first, matching.next()) {
-            (Some(draft), None) => draft,
-            _ => ServiceDraft {
-                definition: ServiceDefinition {
-                    id: String::new(),
-                    project_id: project_id.into(),
-                    name: process.name.clone(),
-                    runtime_type: "OTHER".into(),
-                    executable: String::new(),
-                    args: vec![],
-                    shell_mode: false,
-                    working_directory: cwd,
-                    environment: Default::default(),
-                    secret_keys: vec![],
-                    expected_ports: vec![],
-                    dependencies: vec![],
-                    readiness: Readiness::default(),
-                    stop_grace_seconds: 5,
-                    log_limit_kb: 1024,
-                    revision: String::new(),
-                    created_at: 0,
-                    updated_at: 0,
-                },
-                command: String::new(),
-                source: "无法从当前工作目录唯一识别启动方式，请填写可重复执行的命令".into(),
-            },
-        };
-        draft.definition.expected_ports = ports(&process).into_iter().collect();
-        // Only a manifest-backed suggestion; never copy ps output, env or IDE flags.
-        draft
-            .source
-            .push_str("；预期端口来自本次外部监听，保存前请核对");
-        Ok(ExternalServiceConfiguration { process, draft })
+            .find(|p| Some(&p.candidate.id) == process.project_id.as_ref())
+            .ok_or("项目归属不存在")?;
+        configuration(
+            process,
+            drafts,
+            true,
+            Path::new(&project.candidate.canonical_path),
+        )
     }
 
     pub fn prepare_external_service_handoff(

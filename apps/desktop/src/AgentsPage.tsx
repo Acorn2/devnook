@@ -23,6 +23,11 @@ export default function AdvancedIntegrations(props: IntegrationProps) {
   const [mcpOpen, setMcpOpen] = useState(false);
   return (
     <div className="advanced-integrations">
+      <p>
+        {t(
+          '托管后仍可让 Codex 或其他 AI 助手通过 CLI / MCP 管理服务。先在服务详情复制当前服务的交接指引，再完成需要的接入；服务不会随聊天结束自动停止。',
+        )}
+      </p>
       <section aria-labelledby="cli-heading">
         <h3 id="cli-heading">{t('终端命令（CLI）')}</h3>
         <p>

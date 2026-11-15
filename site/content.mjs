@@ -66,9 +66,9 @@ export const content = {
     agentsEyebrow: '终端与 AI 助手 · 可选',
     agentsTitle: ['桌面之外，', '也能查询同一套状态。'],
     agentsBody:
-      'CLI 适合终端与脚本查询；MCP 让编程助手读取项目、服务、端口和日志。它们与桌面共用本机后台，无需重新维护一份项目配置。',
+      'CLI 与 MCP 让终端和 AI 助手使用桌面中的同一份项目、服务、端口与日志。切换托管后，可从服务详情复制交接指引，让助手继续通过已有配置管理服务。',
     agentsNote:
-      'MCP 默认只读；如需控制服务，需要额外创建范围授权并遵循确认流程。日常桌面使用无需配置 MCP。',
+      'MCP 默认只读；控制服务需明确创建范围授权并遵循确认流程。接入指引不会自动配置 AI 客户端，聊天结束也不会自动停止服务。',
     agentsLink: '阅读 CLI / MCP 使用说明',
     codeLabel: 'MCP / READ-ONLY CONFIGURATION',
     copy: '复制配置',
@@ -93,6 +93,14 @@ export const content = {
       [
         '可以和现有编辑器、终端一起用吗？',
         '可以。你可以在已安装的编辑器中打开项目，也能查看由终端或 IDE 启动的外部监听。项目关联不代表接管外部进程，相关停止操作仍需核验与确认。',
+      ],
+      [
+        '切换托管会关闭原来的外部服务吗？',
+        '只有点击“停止旧实例并以托管方式重启”才会执行。确认页只读展示 PID、命令和目录，Core 复核身份后正常停止旧实例，等待退出及端口释放，再启动托管实例。切换会短暂中断服务；失败保留配置，不自动强杀或恢复旧实例。',
+      ],
+      [
+        '切换后还能让 Codex 或其他 AI 助手管理吗？',
+        '可以。从服务详情复制交接指引，让原会话改用 DevNook CLI / MCP，避免重复执行旧启动命令。AI 与桌面使用同一份配置，控制操作遵循现有授权和确认规则；结束聊天不会自动停止服务。',
       ],
       [
         '支持中文和英文吗？',
@@ -126,10 +134,11 @@ export const content = {
     author: '由 Hresh赫什 构建',
     noScript:
       '本页主要内容无需 JavaScript。源码与使用文档可直接访问；发布状态请查看 GitHub Releases。',
+    screenshotViews: '服务界面截图',
     featuresEyebrow: '功能与实际界面',
     featuresTitle: '从找到工程，到看清它怎么运行。',
     featuresIntro:
-      '下面用同一组演示项目，看看 DevNook 参与日常开发的哪些步骤。所有截图均为实际界面，使用演示数据。',
+      '下面用同一组演示项目，查看当前源码界面的项目、服务与端口功能。截图使用演示数据，安装包功能以对应版本的发布说明为准。',
     features: [
       {
         id: 'projects',
@@ -149,16 +158,37 @@ export const content = {
         id: 'services',
         scene: 'services',
         label: '02 / 服务与日志',
-        title: '前端、API 与日志，\n在同一页查看。',
-        body: '从项目清单获取启动建议，或填写启动命令。保存配置后确认执行，下次直接复用；服务状态、实际端口和输出日志同时可见。',
+        title: '按项目找到服务，\n再看运行与入口。',
+        body: '全局列表先看项目名，项目内先看服务名。名称、相对目录与实际端口区分同一项目的多个服务，右侧详情始终对应当前选择。',
         bullets: [
-          '启动、停止、重启已登记的服务；启动冲突会先被阻断。',
-          '按运行记录回看日志、搜索关键字，并从实际监听地址打开浏览器。',
-          '关闭应用窗口后，已经启动的服务与日志仍由本机后台维护。',
+          '启动、停止、重启已登记的服务；未启动配置与外部运行分别展示，端口冲突会先阻断启动。',
+          '网页入口默认使用 HTTP，地址可复制；HTTPS 位于更多菜单，自定义 Node 网页服务同样可打开。',
+          'API 没有根页面时展示监听地址；入口尚未确认时，仍保留尝试打开。',
+          '按运行记录回看 stdout / stderr 并搜索日志；关闭窗口后，已启动的服务继续运行。',
         ],
-        note: '由终端或 IDE 启动的服务独立标为“外部”。正常停止或切换为托管，都需核验并单独确认。',
-        caption: '服务管理 · 运行状态、实际端口与可搜索的 stdout / stderr',
-        alt: '服务管理显示 Meridian API、前端、PostgreSQL 和外部服务，右侧展示 API 的状态、监听端口及运行日志',
+        note: '外部服务可复用已保存配置，预览后单独确认切换；保存配置与普通启动都不会自动停止外部实例。',
+        caption: '网页入口 · 项目与组件目录、HTTP 地址、命令与工作目录',
+        alt: '全局服务列表以项目名为标题，选中的自定义 Node 网页服务显示 HTTP 访问地址与打开浏览器按钮',
+        shots: [
+          {
+            scene: 'services',
+            label: '网页入口',
+            caption: '网页入口 · 项目与组件目录、HTTP 地址、命令与工作目录',
+            alt: '自定义 Node 网页服务显示 HTTP 访问地址和打开浏览器主按钮',
+          },
+          {
+            scene: 'service-api',
+            label: 'API 详情',
+            caption: 'API 详情 · 展示实际监听，进程信息按需展开',
+            alt: 'Node API 服务显示实际监听地址、启动命令与工作目录，没有浏览器主按钮',
+          },
+          {
+            scene: 'service-logs',
+            label: '运行日志',
+            caption: '项目内服务 · 服务名、实际端口与可搜索的运行日志',
+            alt: '项目内以 API、前端和数据库服务名为标题，右侧显示 API 运行记录与日志',
+          },
+        ],
       },
       {
         id: 'ports',
@@ -275,9 +305,9 @@ export const content = {
     agentsEyebrow: 'TERMINAL & AI ASSISTANTS · OPTIONAL',
     agentsTitle: ['The same state,', 'beyond the desktop.'],
     agentsBody:
-      'Use the CLI for terminal queries and scripts, or MCP to let a coding assistant read projects, services, ports, and logs. They share the desktop’s local backend and saved configuration.',
+      'CLI and MCP give terminals and AI assistants access to the same projects, services, ports, and logs as the desktop. After switching to DevNook, copy the service’s handoff instructions so your assistant can continue using its saved configuration.',
     agentsNote:
-      'MCP is read-only by default. Service control needs a separate scoped grant and the relevant confirmation flow. Desktop use requires no MCP setup.',
+      'MCP is read-only by default. Service control requires an explicit scoped grant and the relevant confirmations. Instructions do not configure your AI client automatically, and ending a chat does not stop services.',
     agentsLink: 'Read the CLI / MCP guide',
     codeLabel: 'MCP / READ-ONLY CONFIGURATION',
     copy: 'Copy config',
@@ -302,6 +332,14 @@ export const content = {
       [
         'Can I keep using my editor and terminal?',
         'Yes. Open projects in installed editors and inspect external listeners started by a terminal or IDE. Associating a process with a project does not transfer ownership; stopping it still requires verification and confirmation.',
+      ],
+      [
+        'Does switching stop the existing external service?',
+        'Only clicking “Stop old instance and restart under DevNook” executes the switch. The preview shows the PID, command, and directory as read-only details. Core rechecks identity, requests a graceful stop, waits for exit and released ports, then starts a managed instance. Expect a brief interruption. Failure retains configuration without force-killing or automatically restoring the old instance.',
+      ],
+      [
+        'Can Codex or another AI assistant still manage the service?',
+        'Yes. Copy the handoff instructions from the service details and ask the original session to use DevNook CLI / MCP instead of repeating the old launch command. AI and desktop share the saved configuration and existing authorization and confirmation rules. Ending a chat does not stop the service automatically.',
       ],
       [
         'Does it support Chinese and English?',
@@ -335,10 +373,11 @@ export const content = {
     author: 'Built by Hresh赫什',
     noScript:
       'The main content works without JavaScript. Open the source and documentation directly; check GitHub Releases for publication status.',
+    screenshotViews: 'Service screenshot views',
     featuresEyebrow: 'FEATURES, ON SCREEN',
     featuresTitle: 'From finding a project to knowing how it runs.',
     featuresIntro:
-      'Follow one set of demo projects through everyday development tasks. These are screenshots of the actual interface using demo data.',
+      'Follow one set of demo projects through the current source interface. Screenshots use demo data; installer features follow the release notes for that version.',
     features: [
       {
         id: 'projects',
@@ -358,16 +397,37 @@ export const content = {
         id: 'services',
         scene: 'services',
         label: '02 / SERVICES & LOGS',
-        title: 'Your frontend, API, and logs. In one view.',
-        body: 'Review a launch suggestion from project manifests or enter a command. Save the configuration and confirm execution, then reuse it next time. See service state, actual ports, and output together.',
+        title: 'Find the service. See its run and page entry.',
+        body: 'The global list leads with project names; project views lead with service names. Names, relative directories, and actual ports distinguish services, with details matching the current selection.',
         bullets: [
-          'Start, stop, and restart registered services. Port conflicts block startup.',
-          'Read previous runs, search log lines, and open a browser from an actual listening address.',
-          'Started services and their logs continue in the local backend after you close the app window.',
+          'Start, stop, and restart registered services. Unstarted configurations and external instances remain distinct; port conflicts block startup.',
+          'Page entries use HTTP by default, with copyable URLs and HTTPS in the more menu. Custom Node web servers are supported too.',
+          'APIs without a root page show listeners. Unconfirmed entries still offer a browser attempt.',
+          'Read stdout / stderr by run and search logs. Started services continue after you close the window.',
         ],
-        note: 'Services started in a terminal or IDE remain external. Stopping them or switching to a managed configuration requires identity checks and separate confirmation.',
-        caption: 'Service management · Runtime state, actual ports, and searchable stdout / stderr',
-        alt: 'Meridian API, frontend, PostgreSQL, and an external service with API status, actual listening port, and run logs in the details pane',
+        note: 'Reuse a saved configuration for an external service, then preview and separately confirm the switch. Saving configuration or using ordinary start never stops an external instance automatically.',
+        caption: 'Page entry · Project and component, HTTP URL, launch command, and directory',
+        alt: 'Global services titled by project, with a selected custom Node web server showing its HTTP URL and Open in browser button',
+        shots: [
+          {
+            scene: 'services',
+            label: 'Page entry',
+            caption: 'Page entry · Project and component, HTTP URL, command, and directory',
+            alt: 'Custom Node web server with its HTTP URL and primary Open in browser button',
+          },
+          {
+            scene: 'service-api',
+            label: 'API details',
+            caption: 'API details · Actual listeners, with expandable process facts',
+            alt: 'Node API details with actual listeners, launch command, and directory, without a primary browser shortcut',
+          },
+          {
+            scene: 'service-logs',
+            label: 'Run logs',
+            caption: 'Project services · Service names, actual ports, and searchable run logs',
+            alt: 'Project API, frontend, and database titled by service name, with API run history and logs on the right',
+          },
+        ],
       },
       {
         id: 'ports',

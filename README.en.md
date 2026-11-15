@@ -35,7 +35,7 @@ If you work across several local projects, start with these tasks:
 
 ![DevNook project library with categories, favorites, stacks, listeners, and editor access](site/assets/projects-dark-en.png)
 
-<p align="center"><sub>Project library. All screenshots show the actual interface using demo projects and runtime data, with no personal projects or processes.</sub></p>
+<p align="center"><sub>Project library. Screenshots show the current source interface using demo projects and runtime data, with no personal projects or processes. Installer features follow the release notes for that version.</sub></p>
 
 ## Features
 
@@ -62,13 +62,27 @@ Review project boundaries and components before importing. Select a specific pat
 Open a project’s services, review suggestions derived from its manifests, or enter a command. Save the configuration, confirm execution, and reuse it next time.
 
 - Start, stop, and restart registered services. Check port conflicts and dependency state before startup.
-- See runtime state and actual listeners together, and open a local page from an available listening address.
+- The global service list leads with project names; a project's own list leads with service names. Names, relative directories, and actual ports distinguish services in the same project, with matching details on the right.
+- Inspect runtime state, actual listeners, launch commands, and working directories. Expand process details when needed.
 - Read stdout / stderr by run, search log lines, and retain historical runs separately from configuration.
 - Started services and logs continue in the local backend after you close the app window.
 
-![Service management with frontend and backend readiness, actual ports, and run logs](site/assets/services-dark-en.png)
+![Services distinguished by project and component, with an HTTP URL and browser button for a web page](site/assets/services-dark-en.png)
 
-Services started in a terminal or IDE remain external. After identity checks, you can stop one normally, or save a separate configuration and confirm a switch to DevNook management. The old environment, historical logs, and IDE debugging session are not migrated.
+Web services offer an **Open in browser** button and a copyable access URL. HTTP is the default; HTTPS is in the more menu. APIs with a confirmed non-page root show listening addresses. Unconfirmed entries still allow a browser attempt, so Node runtimes and custom launch commands do not hide access by themselves.
+
+<details>
+<summary>See API details and run logs</summary>
+
+![API details show actual listeners, the launch command, and directory without promoting a page shortcut](site/assets/service-api-dark-en.png)
+
+![Project services lead with service names, with API run history and logs in the details pane](site/assets/service-logs-dark-en.png)
+
+</details>
+
+Services started in a terminal or IDE remain external. After identity checks, you can stop one normally, or reuse a saved configuration and separately confirm a switch to DevNook management. Create another configuration only when needed. Configurations without a run show “Not started”; starting normally never stops the external instance. The old environment, historical logs, and IDE debugging session are not migrated.
+
+Service details include “Let AI continue managing this service” to copy its CLI commands and Codex / IDE handoff instructions, or open existing MCP access settings. You and your AI assistant can keep using the same saved configuration. Copying instructions does not execute commands, create grants, or modify client settings.
 
 ### Trace a listening port to its process and project
 

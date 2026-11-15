@@ -16,7 +16,7 @@ Intel Mac 使用项目隔离 Rust 工具链的 `x86_64-apple-darwin` 标准库�
 - serde / serde_json：IPC 与项目清单；uuid：档案与短期确认凭证；libc：本机 UID、信号。
 - tempfile：测试隔离目录和数据库。
 - Prettier / rustfmt：统一新工程的格式，格式检查不跳过类型或构建验证。
-- 外部服务切换复用 Core 的服务操作锁、内存确认、单 PID 身份检查和 runner；使用既有 libproc / 固定 ps stat 核验退出，标准库有界等待端口释放。前端复用服务编辑器并提供独立 PID 确认，无新增依赖、数据表或网络接口；SQLite v3 / UDS v10 保持。
+- 外部服务切换复用 Core 的服务操作锁、内存确认、单 PID 身份检查和 runner；使用既有 libproc / 固定 ps stat 核验退出，标准库有界等待端口释放。前端复用服务编辑器，切换确认只读展示 PID 并通过明确按钮提交绑定身份；单独停止外部服务仍需输入 PID，无新增依赖、数据表或网络接口；SQLite v3 / UDS v10 保持。
 - Phase 2 以标准库 UnixStream / UnixListener、文件锁实现私有 IPC，Core 与 runner 使用同一可执行文件内部模式，不增加系统安装。
 - security-framework 3：macOS Keychain，敏感值不进入 SQLite，配置版本隔离引用；测试使用内存 SecretStore。
 - url 2：校验 loopback HTTP 目标；健康检查使用标准库限时 TCP，不增加 HTTP 客户端或 TLS 栈。
@@ -36,3 +36,5 @@ Intel Mac 使用项目隔离 Rust 工具链的 `x86_64-apple-darwin` 标准库�
 开发应用识别通过 macOS LaunchServices 与 CoreFoundation C 接口读取系统登记及 XML / binary plist，FFI 函数签名与对象所有权规则对照本机 SDK；不加载应用代码，无新增依赖。沿用 JSON 偏好存储和固定 open 参数数组，SQLite 仍为 v3；应用接口和路径目标仍由当前 UDS v9 门禁保护。
 
 手动应用记录复用 app_settings JSON，无 SQLite schema 迁移；Core 合并保留私有缓存字段，客户端 Settings 无需携带此字段。remember_development_app 自 UDS v7 引入、在当前 v9 中仍仅本地可用，inspect_development_app 仍为只读。
+
+已有配置切换继续使用 React 状态、既有 Select / Modal、Core 原生 external_service_configuration / prepare_external_service_handoff / confirm_external_service_handoff 与现有 CLI/MCP。列表分组与提示只表达既有事实，不新增后台接口、依赖、数据库迁移或本机客户端配置；AI 指引通过 navigator.clipboard 复制，失败保留可手选的 CLI 文本。

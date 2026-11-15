@@ -74,6 +74,7 @@ const time = (value: number) =>
 export default function App() {
   const { language } = useLanguage();
   const [page, setPage] = useState<Page>('all');
+  const [showIntegrations, setShowIntegrations] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [ports, setPorts] = useState<PortBinding[]>([]);
   const [settings, setSettings] = useState<Settings>(defaults);
@@ -363,6 +364,7 @@ export default function App() {
     if (batchBusy) return;
     endBatch();
     setPage(next);
+    setShowIntegrations(false);
     setServiceProjectId('');
     setPortFocus(null);
     setServicesView('services');
@@ -735,6 +737,7 @@ export default function App() {
 
           {page === 'settings' ? (
             <SettingsPage
+              showIntegrations={showIntegrations}
               appearance={appearance}
               changeAppearance={changeAppearance}
               appearanceStorageError={storageError}
@@ -783,6 +786,10 @@ export default function App() {
                     setPortFocus(pid);
                   }}
                   showAllServices={() => setServiceProjectId('')}
+                  openIntegrations={() => {
+                    navigate('settings');
+                    setShowIntegrations(true);
+                  }}
                   report={report}
                   notify={notify}
                 />
@@ -1931,6 +1938,7 @@ function PortsPage({
 }
 
 function SettingsPage({
+  showIntegrations,
   appearance,
   changeAppearance,
   appearanceStorageError,
@@ -1946,6 +1954,7 @@ function SettingsPage({
   onSave,
   report,
 }: {
+  showIntegrations: boolean;
   appearance: Appearance;
   changeAppearance: (appearance: Appearance) => void;
   appearanceStorageError: boolean;
@@ -1963,7 +1972,15 @@ function SettingsPage({
 }) {
   const [edit, setEdit] = useState(settings);
   const [busy, setBusy] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(showIntegrations);
+  const integrations = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (showIntegrations) {
+      setAdvancedOpen(true);
+      integrations.current?.scrollIntoView({ block: 'start' });
+      integrations.current?.querySelector('summary')?.focus();
+    }
+  }, [showIntegrations]);
   useEffect(() => setEdit(settings), [settings]);
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -2098,6 +2115,8 @@ function SettingsPage({
       </form>
       <details
         className="settings-section settings-integrations"
+        ref={integrations}
+        open={advancedOpen}
         onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
       >
         <summary>

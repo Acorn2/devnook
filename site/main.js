@@ -40,7 +40,9 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+let screenshotAppearance = root.dataset.theme;
 function updateScreenshots(appearance) {
+  screenshotAppearance = appearance;
   document.querySelectorAll('[data-theme-image]').forEach((preview) => {
     preview.src = `${preview.dataset.prefix}assets/${preview.dataset.themeImage}-${appearance}-${root.dataset.locale}.png`;
   });
@@ -56,6 +58,27 @@ updateScreenshots(root.dataset.theme);
 document.querySelectorAll('[data-preview]').forEach((button) => {
   button.addEventListener('click', () => {
     updateScreenshots(button.dataset.preview);
+  });
+});
+
+document.querySelectorAll('.feature-switch').forEach((group) => {
+  group.hidden = false;
+  group.querySelectorAll('[data-shot-choice]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const figure = group.closest('.feature-preview');
+      const image = figure.querySelector('img');
+      image.dataset.themeImage = button.dataset.shotChoice;
+      image.alt = button.dataset.shotAlt;
+      figure.querySelector('figcaption [data-shot-caption]').textContent =
+        button.dataset.shotCaption;
+      figure.querySelectorAll('[data-image-link]').forEach((link) => {
+        link.dataset.scene = button.dataset.shotChoice;
+      });
+      group.querySelectorAll('[data-shot-choice]').forEach((choice) => {
+        choice.setAttribute('aria-pressed', String(choice === button));
+      });
+      updateScreenshots(screenshotAppearance);
+    });
   });
 });
 

@@ -2,7 +2,13 @@
 //! service control, user-supplied URL, or MCP capability is introduced.
 use crate::{ipc::CoreClient, model::*, service_model::ServiceState};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, net::IpAddr, process::Command};
+use std::{
+    collections::{HashMap, HashSet},
+    io::{Read, Write},
+    net::{IpAddr, SocketAddr, TcpStream},
+    process::Command,
+    time::{Duration, Instant},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
@@ -16,6 +22,10 @@ pub struct BrowserAddress {
     pub url: String,
     pub pid: u32,
     pub fingerprint: String,
+    /// GUI hint: HTML root response / known web entry, non-page response, or
+    /// unknown. It never grants control capability or changes process purpose.
+    #[serde(default)]
+    pub web_ui: Option<bool>,
 }
 
 fn urls(binding: &PortBinding) -> Vec<String> {
@@ -87,6 +97,11 @@ fn addresses(target: &BrowserTarget, details: &[ProcessDetail]) -> Vec<BrowserAd
                         url,
                         pid: detail.pid,
                         fingerprint: detail.fingerprint.clone(),
+                        web_ui: crate::process_kind::browser_entry(
+                            detail.executable.as_deref(),
+                            &detail.command,
+                        )
+                        .then_some(true),
                     });
                 }
             }
@@ -104,22 +119,117 @@ fn addresses(target: &BrowserTarget, details: &[ProcessDetail]) -> Vec<BrowserAd
     result
 }
 
+fn html_response(headers: &[u8]) -> Option<bool> {
+    let text = std::str::from_utf8(headers).ok()?;
+    let mut lines = text.split("\r\n");
+    let mut status = lines.next()?.split_whitespace();
+    if !matches!(status.next()?, "HTTP/1.0" | "HTTP/1.1") {
+        return None;
+    }
+    let status: u16 = status.next()?.parse().ok()?;
+    // Redirects and temporary/auth errors do not establish the page's absence.
+    // Never follow a Location header, even when it points to the same service.
+    if !(200..300).contains(&status) && !matches!(status, 404 | 405) {
+        return None;
+    }
+    let mut content_type = None;
+    for line in lines.take_while(|line| !line.is_empty()) {
+        let (name, value) = line.split_once(':')?;
+        if name.eq_ignore_ascii_case("content-type") {
+            if content_type.is_some() {
+                return None;
+            }
+            content_type = Some(value.split(';').next()?.trim().to_ascii_lowercase());
+        }
+    }
+    match content_type.as_deref()? {
+        "text/html" | "application/xhtml+xml" if (200..300).contains(&status) => Some(true),
+        "application/json"
+        | "text/json"
+        | "text/plain"
+        | "application/octet-stream"
+        | "text/event-stream" => Some(false),
+        value if value.starts_with("application/") && value.ends_with("+json") => Some(false),
+        _ => None,
+    }
+}
+
+fn probe_http_page(address: &str, deadline: Instant) -> Option<bool> {
+    let url = url::Url::parse(address).ok()?;
+    if url.scheme() != "http"
+        || url.path() != "/"
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return None;
+    }
+    let ip: IpAddr = url.host_str()?.trim_matches(['[', ']']).parse().ok()?;
+    if !ip.is_loopback() {
+        return None;
+    }
+    let socket = SocketAddr::new(ip, url.port_or_known_default()?);
+    let remaining = || deadline.checked_duration_since(Instant::now());
+    let mut stream = TcpStream::connect_timeout(&socket, remaining()?).ok()?;
+    stream.set_write_timeout(Some(remaining()?)).ok()?;
+    // No credentials, cookies, proxy, redirects, path guesses or response body
+    // processing. This one request is limited to a verified local HTTP root.
+    write!(stream, "GET / HTTP/1.1\r\nHost: {socket}\r\nAccept: text/html, application/xhtml+xml\r\nConnection: close\r\n\r\n").ok()?;
+    let mut headers = vec![];
+    let mut chunk = [0; 512];
+    while headers.len() < 16 * 1024 {
+        stream.set_read_timeout(Some(remaining()?)).ok()?;
+        let count = stream.read(&mut chunk).ok()?;
+        if count == 0 {
+            return None;
+        }
+        headers.extend_from_slice(&chunk[..count]);
+        if let Some(end) = headers.windows(4).position(|window| window == b"\r\n\r\n") {
+            return html_response(&headers[..end + 4]);
+        }
+    }
+    None
+}
+
+fn annotate_pages(addresses: &mut [BrowserAddress], mut probe: impl FnMut(&str) -> Option<bool>) {
+    let hints: HashMap<_, _> = addresses
+        .iter()
+        .filter(|address| address.url.starts_with("http://"))
+        .map(|address| (address.url.clone(), probe(&address.url)))
+        .collect();
+    for address in addresses {
+        // Both schemes describe the same verified TCP endpoint. HTTPS itself is
+        // not probed and remains an explicit manual action.
+        let http = url::Url::parse(&address.url).ok().and_then(|mut url| {
+            let port = url.port_or_known_default()?;
+            url.set_scheme("http").ok()?;
+            url.set_port(Some(port)).ok()?;
+            Some(url.to_string())
+        });
+        if let Some(Some(hint)) = http.as_ref().and_then(|http| hints.get(http)) {
+            address.web_ui = Some(*hint);
+        }
+    }
+}
+
 fn checked_address<'a>(
     current: &'a [BrowserAddress],
     requested: &BrowserAddress,
 ) -> Result<&'a str, String> {
     current
         .iter()
-        .find(|address| *address == requested)
+        .find(|address| {
+            address.url == requested.url
+                && address.pid == requested.pid
+                && address.fingerprint == requested.fingerprint
+        })
         .map(|address| address.url.as_str())
         .ok_or_else(|| "服务监听或进程身份已变化，请刷新地址后重试".into())
 }
 
 impl CoreClient {
-    pub fn service_browser_addresses(
-        &self,
-        target: &BrowserTarget,
-    ) -> Result<Vec<BrowserAddress>, String> {
+    fn browser_candidates(&self, target: &BrowserTarget) -> Result<Vec<BrowserAddress>, String> {
         if let BrowserTarget::Managed { service_id } = target {
             let view = self
                 .services()?
@@ -153,6 +263,32 @@ impl CoreClient {
         Ok(addresses(target, &details))
     }
 
+    pub fn service_browser_addresses(
+        &self,
+        target: &BrowserTarget,
+    ) -> Result<Vec<BrowserAddress>, String> {
+        let mut choices = self.browser_candidates(target)?;
+        let deadline = Instant::now() + Duration::from_millis(900);
+        let mut count = 0;
+        annotate_pages(&mut choices, |address| {
+            count += 1;
+            if count > 8 || Instant::now() >= deadline {
+                return None;
+            }
+            probe_http_page(
+                address,
+                deadline.min(Instant::now() + Duration::from_millis(300)),
+            )
+        });
+        // An endpoint can change hands during I/O; retain only current facts.
+        let mut current = vec![];
+        for pid in choices.iter().map(|a| a.pid).collect::<HashSet<_>>() {
+            current.extend(addresses(target, &[self.inspect(pid)?]));
+        }
+        choices.retain(|address| checked_address(&current, address).is_ok());
+        Ok(choices)
+    }
+
     pub fn open_service_browser(
         &self,
         target: &BrowserTarget,
@@ -161,7 +297,7 @@ impl CoreClient {
         if !cfg!(target_os = "macos") {
             return Err("浏览器快捷打开目前仅支持 macOS".into());
         }
-        let current = self.service_browser_addresses(target)?;
+        let current = self.browser_candidates(target)?;
         let url = checked_address(&current, address)?;
         let status = Command::new("/usr/bin/open")
             .arg(url)
@@ -264,10 +400,26 @@ mod tests {
         let listener = UnixListener::bind(&socket).unwrap();
         fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
         listener.set_nonblocking(true).unwrap();
+        let http_listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut http_binding = binding("127.0.0.1", "IPv4");
+        http_binding.port = http_listener.local_addr().unwrap().port();
+        let port = http_binding.port;
+        let http_server = thread::spawn(move || {
+            let (mut connection, _) = http_listener.accept().unwrap();
+            connection
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut request = [0; 2048];
+            let length = connection.read(&mut request).unwrap();
+            assert!(std::str::from_utf8(&request[..length])
+                .unwrap()
+                .starts_with("GET / HTTP/1.1\r\n"));
+            connection.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 0\r\n\r\n").unwrap();
+        });
         let server = thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(5);
             let mut methods = vec![];
-            while methods.len() < 2 {
+            while methods.len() < 3 {
                 let (mut stream, _) = match listener.accept() {
                     Ok(value) => value,
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -287,10 +439,10 @@ mod tests {
                 assert_eq!(request["version"], 10);
                 let method = request["method"].as_str().unwrap().to_owned();
                 let result = match method.as_str() {
-                    "list_ports" => serde_json::to_value(vec![binding("*", "IPv4")]).unwrap(),
+                    "list_ports" => serde_json::to_value(vec![http_binding.clone()]).unwrap(),
                     "inspect_process" => {
                         assert_eq!(request["params"]["pid"], 42);
-                        serde_json::to_value(detail(vec![binding("*", "IPv4")])).unwrap()
+                        serde_json::to_value(detail(vec![http_binding.clone()])).unwrap()
                     }
                     _ => panic!("unexpected non-read method: {method}"),
                 };
@@ -308,8 +460,13 @@ mod tests {
             .service_browser_addresses(&BrowserTarget::External { pid: 42 })
             .unwrap();
         assert_eq!(choices.len(), 2);
-        assert_eq!(choices[0].url, "http://127.0.0.1:5173/");
-        assert_eq!(server.join().unwrap(), ["list_ports", "inspect_process"]);
+        assert_eq!(choices[0].url, format!("http://127.0.0.1:{port}/"));
+        assert!(choices.iter().all(|choice| choice.web_ui == Some(true)));
+        assert_eq!(
+            server.join().unwrap(),
+            ["list_ports", "inspect_process", "inspect_process"]
+        );
+        http_server.join().unwrap();
     }
 
     #[test]
@@ -380,8 +537,14 @@ mod tests {
             url: "http://127.0.0.1:5173/".into(),
             pid: 42,
             fingerprint: "start-a".into(),
+            web_ui: Some(false),
         };
         assert!(checked_address(std::slice::from_ref(&address), &address).is_ok());
+        let hint_only = BrowserAddress {
+            web_ui: Some(true),
+            ..address.clone()
+        };
+        assert!(checked_address(std::slice::from_ref(&address), &hint_only).is_ok());
         for changed in [
             BrowserAddress {
                 pid: 43,
@@ -403,5 +566,105 @@ mod tests {
             assert!(checked_address(std::slice::from_ref(&address), &changed).is_err());
         }
         assert!(checked_address(&[], &address).is_err());
+    }
+
+    #[test]
+    fn web_entry_hints_do_not_turn_generic_node_api_listeners_into_web_pages() {
+        let target = BrowserTarget::External { pid: 42 };
+        let mut process = detail(vec![binding("127.0.0.1", "IPv4")]);
+        process.executable = Some("/bin/node".into());
+        process.command = "node /work/app/local-server/server.mjs".into();
+        let api = addresses(&target, &[process.clone()]);
+        assert_eq!(api.len(), 2);
+        assert!(api.iter().all(|address| address.web_ui.is_none()));
+        process.command = "node /work/app/node_modules/vite/bin/vite.js".into();
+        let page = addresses(&target, &[process]);
+        assert!(page.iter().all(|address| address.web_ui == Some(true)));
+        assert_eq!(api[0].url, page[0].url);
+        assert_eq!(api[0].fingerprint, page[0].fingerprint);
+        let legacy: BrowserAddress = serde_json::from_value(serde_json::json!({
+            "url": "http://127.0.0.1:5173/", "pid": 42, "fingerprint": "start-a"
+        }))
+        .unwrap();
+        assert!(legacy.web_ui.is_none());
+    }
+
+    #[test]
+    fn browser_headers_distinguish_html_from_api_without_using_status_alone() {
+        for headers in [
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n",
+            "HTTP/1.0 200 OK\r\ncontent-type: APPLICATION/XHTML+XML\r\n\r\n",
+        ] {
+            assert_eq!(html_response(headers.as_bytes()), Some(true));
+        }
+        for headers in [
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n",
+            "HTTP/1.1 404 Not Found\r\nContent-Type: application/problem+json\r\n\r\n",
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n",
+        ] {
+            assert_eq!(html_response(headers.as_bytes()), Some(false));
+        }
+        for headers in [
+            "HTTP/1.1 302 Found\r\nContent-Type: text/html\r\nLocation: /app\r\n\r\n",
+            "HTTP/1.1 503 Busy\r\nContent-Type: text/html\r\n\r\n",
+            "HTTP/1.1 200 OK\r\n\r\n",
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Type: application/json\r\n\r\n",
+            "not HTTP\r\nContent-Type: text/html\r\n\r\n",
+        ] {
+            assert_eq!(html_response(headers.as_bytes()), None);
+        }
+    }
+
+    #[test]
+    fn browser_custom_node_pages_and_api_get_different_hints_and_unknown_stays_unknown() {
+        let mut listener = binding("127.0.0.1", "IPv4");
+        listener.port = 80;
+        let mut choices = addresses(
+            &BrowserTarget::External { pid: 42 },
+            &[detail(vec![listener])],
+        );
+        // The same generic node server can serve a page or an API; neither the
+        // runtime nor its project's framework list supplies that distinction.
+        annotate_pages(&mut choices, |_| Some(true));
+        assert!(choices.iter().all(|a| a.web_ui == Some(true)));
+        annotate_pages(&mut choices, |_| Some(false));
+        assert!(choices.iter().all(|a| a.web_ui == Some(false)));
+        for choice in &mut choices {
+            choice.web_ui = None;
+        }
+        annotate_pages(&mut choices, |_| None);
+        assert!(choices.iter().all(|a| a.web_ui.is_none()));
+    }
+
+    #[test]
+    fn browser_probe_is_loopback_http_root_only_and_bounded_when_peer_does_not_respond() {
+        for address in [
+            "https://127.0.0.1:1234/",
+            "http://192.0.2.1/",
+            "http://example.com/",
+            "http://user:password@127.0.0.1/",
+            "http://127.0.0.1/api",
+            "http://127.0.0.1/?token=x",
+        ] {
+            assert_eq!(
+                probe_http_page(address, Instant::now() + Duration::from_secs(1)),
+                None
+            );
+        }
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = format!("http://{}/", listener.local_addr().unwrap());
+        let (done, release) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (_stream, _) = listener.accept().unwrap();
+            release.recv_timeout(Duration::from_secs(2)).unwrap();
+        });
+        let start = Instant::now();
+        assert_eq!(
+            probe_http_page(&address, start + Duration::from_millis(40)),
+            None
+        );
+        assert!(start.elapsed() < Duration::from_secs(1));
+        done.send(()).unwrap();
+        server.join().unwrap();
     }
 }

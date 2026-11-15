@@ -427,6 +427,13 @@ h1 {
 .feature-preview .preview-full {
   flex-shrink: 0;
 }
+.feature-switch {
+  flex-wrap: wrap;
+  padding: 0.15rem 0.15rem 0.4rem;
+}
+.feature-switch[hidden] {
+  display: none;
+}
 .integration-examples {
   min-width: 0;
 }

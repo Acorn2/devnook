@@ -3632,6 +3632,7 @@ main.workbench-page {
   flex-wrap: wrap;
   gap: 0.5rem;
   min-width: 0;
+  flex: 1 1 12rem;
 }
 .services-workbench .service-detail-managed {
   display: flex;
@@ -3649,34 +3650,6 @@ main.workbench-page {
   min-height: var(--control-height-small);
   padding: 0.2rem 0.65rem;
   font-size: 0.8rem;
-}
-.service-overview .service-command-inline {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.75rem;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-}
-.service-command-inline > code {
-  white-space: pre-wrap;
-}
-.service-command-inline > span {
-  align-self: center;
-  font-size: 0.72rem;
-}
-.service-actual-ports {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.3rem 0.65rem;
-  margin-top: 0.4rem;
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-.service-actual-ports .service-port-summary {
-  margin: 0;
 }
 .service-overview .service-runtime-details {
   margin: 0;
@@ -3801,26 +3774,93 @@ main.workbench-page {
   position: relative;
   flex-shrink: 0;
 }
-.service-browser-action {
-  display: inline-flex;
+.service-detail-actions {
+  display: flex;
   align-items: center;
-  min-width: 0;
-  gap: 0.15rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
   flex-shrink: 0;
 }
-.service-browser-choice {
-  flex: 0 0 5.5rem;
-}
-.service-browser-choice .select-trigger {
-  min-height: var(--control-height-small);
-  padding: 0.2rem 0.5rem;
+.service-detail-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.75rem;
+  color: var(--muted);
   font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
-.service-browser-action > .field-hint {
-  flex-basis: 100%;
-  margin: 0.2rem 0;
-  font-size: 0.72rem;
+.service-detail-subtitle > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.service-detail-facts {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0.85rem 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.service-detail-facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+.service-detail-facts dt {
+  color: var(--muted);
+}
+.service-detail-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.service-detail-facts code {
+  font-family: var(--mono);
+  white-space: pre-wrap;
+}
+.service-detail-facts .field-hint {
+  margin: 0;
+}
+.service-browser-address {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  min-width: 0;
+}
+.service-browser-address > code,
+.service-browser-address > .select-control {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.service-browser-address > .icon-button {
+  flex-shrink: 0;
+  align-self: center;
+}
+.service-browser-address .select-trigger {
+  min-height: var(--control-height-small);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+.external-process-details {
+  border-top: 1px solid var(--line);
+  padding: 0.75rem 0;
+  font-size: 0.8rem;
+}
+.external-process-details > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.external-process-details .service-detail-facts {
+  border: 0;
+  padding: 0;
+}
+@media (min-width: 640px) {
+  .service-detail-facts > div {
+    grid-template-columns: 6rem minmax(0, 1fr);
+  }
 }
 .service-options > summary {
   display: flex;
@@ -3846,7 +3886,10 @@ main.workbench-page {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  min-width: 12rem;
+  min-width: 14rem;
+  max-width: calc(100vw - 2rem);
+  max-height: min(26rem, 60vh);
+  overflow-y: auto;
   padding: 0.35rem;
   border: 1px solid var(--line-strong);
   border-radius: 0.5rem;
@@ -3863,6 +3906,11 @@ main.workbench-page {
 .service-options-content .text-button:hover:not(:disabled) {
   background: var(--panel-hover);
 }
+.service-options-content hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 0.3rem 0;
+}
 .services-workbench .service-row {
   gap: 0.5rem;
   padding: 0.75rem;
@@ -3870,14 +3918,16 @@ main.workbench-page {
 .service-row-heading {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.35rem 0.5rem;
 }
 .service-row-heading .service-row-title {
-  flex: 1;
+  flex: 1 1 7rem;
   min-width: 0;
   gap: 0.4rem;
 }
 .service-row-heading .service-badge {
+  flex-shrink: 0;
   padding: 0.1rem 0.35rem;
 }
 .service-row-meta {
@@ -3890,9 +3940,26 @@ main.workbench-page {
   min-width: 0;
   flex: 1;
 }
+.service-runtime {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.service-row-title strong.service-component-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.service-identity {
+  margin: 0 0 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
 .service-row-meta .service-port-summary,
 .services-workbench .service-row .service-row-meta .service-project {
   margin: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .service-row-meta .service-port-summary {
   font-size: 0.7rem;
@@ -4019,58 +4086,10 @@ main.workbench-page {
 .external-service-detail .service-detail-heading {
   margin-bottom: 0.4rem;
 }
-.external-service-detail .service-detail-title {
-  flex: 1;
-}
 .external-service-detail .service-detail-heading .button {
   min-height: var(--control-height-small);
   padding: 0.2rem 0.65rem;
   font-size: 0.8rem;
-}
-.external-service-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.75rem;
-  color: var(--muted);
-  font-size: 0.75rem;
-  overflow-wrap: anywhere;
-}
-.external-service-readonly {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  white-space: nowrap;
-}
-.external-service-readonly > svg {
-  flex-shrink: 0;
-}
-.external-service-facts {
-  display: grid;
-  gap: 0.65rem;
-  margin: 0.75rem 0 0;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--line);
-  font-size: 0.78rem;
-  line-height: 1.6;
-}
-.external-service-facts > div {
-  display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  gap: 0.5rem;
-}
-.external-service-facts dt {
-  color: var(--muted);
-}
-.external-service-facts dd {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.external-service-facts code {
-  color: var(--text);
-  font-family: var(--mono);
-  white-space: pre-wrap;
 }
 .listening-bindings-compact {
   margin: 0;
@@ -4241,6 +4260,69 @@ main.workbench-page {
 @media (min-width: 1024px) {
   .services-workbench .services-workspace {
     grid-template-rows: minmax(0, 1fr);
-    grid-template-columns: 17rem minmax(0, 1fr);
+    grid-template-columns: 20rem minmax(0, 1fr);
   }
+}
+
+.service-handoff-notice {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--panel);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.service-handoff-chooser {
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.service-guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.service-ai-guide {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+}
+.service-ai-guide > summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.service-ai-guide .form-stack {
+  padding-top: 0.75rem;
+}
+.service-ai-guide p {
+  margin: 0;
+  line-height: 1.6;
+}
+.service-ai-guide pre {
+  max-width: 100%;
+  padding: 0.75rem;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--panel);
+  overflow-x: auto;
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+.external-confirm-identity {
+  flex-shrink: 0;
+  padding: 0.6rem 1.25rem;
+  border-top: 1px solid var(--line);
+}
+.external-confirm-identity label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.external-confirm-identity input {
+  flex: 1;
+  min-width: 6rem;
 }
