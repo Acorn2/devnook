@@ -21,7 +21,7 @@ Apple Silicon 本机默认构建的固定输出：
 
 ```text
 target/release/bundle/macos/DevNook.app
-target/release/bundle/dmg/DevNook_0.1.1_aarch64.dmg
+target/release/bundle/dmg/DevNook_0.1.2_aarch64.dmg
 target/release/bundle/dmg/SHA256SUMS
 ```
 
@@ -38,14 +38,14 @@ APPLE_SIGNING_IDENTITY=- CI=true pnpm tauri bundle --target x86_64-apple-darwin 
 node scripts/record-release.mjs --target x86_64-apple-darwin
 ```
 
-固定输出为 `target/x86_64-apple-darwin/release/bundle/` 下的 `macos/DevNook.app`、`dmg/DevNook_0.1.1_x64.dmg` 与 `dmg/SHA256SUMS-x86_64`。Rust target / 清单架构使用 `x86_64`，DMG 文件名沿用 Tauri 的 `x64`。显式 `--target aarch64-apple-darwin` 同样使用独立 target 目录；不指定 target 则从本机架构和默认 `target/release/` 登记。
+固定输出为 `target/x86_64-apple-darwin/release/bundle/` 下的 `macos/DevNook.app`、`dmg/DevNook_0.1.2_x64.dmg` 与 `dmg/SHA256SUMS-x86_64`。Rust target / 清单架构使用 `x86_64`，DMG 文件名沿用 Tauri 的 `x64`。显式 `--target aarch64-apple-darwin` 同样使用独立 target 目录；不指定 target 则从本机架构和默认 `target/release/` 登记。
 
 ## 校验
 
 ```sh
 sh scripts/rust-local.sh cargo test --release --workspace --locked
 codesign --verify --strict --deep target/release/bundle/macos/DevNook.app
-hdiutil verify target/release/bundle/dmg/DevNook_0.1.1_aarch64.dmg
+hdiutil verify target/release/bundle/dmg/DevNook_0.1.2_aarch64.dmg
 cd target/release/bundle/dmg
 shasum -a 256 -c SHA256SUMS
 ```
@@ -62,9 +62,9 @@ Intel 测试使用 `cargo test --release --workspace --target x86_64-apple-darwi
 
 ## 发布到 GitHub Releases
 
-1. 确定版本号，并为对应源码创建版本标签，例如 `v0.1.1`。
+1. 确定版本号，并为对应源码创建版本标签，例如 `v0.1.2`。
 2. 完成该版本的构建、测试和签名状态核对。
-3. 上传相应架构的 DMG 与校验文件：Apple Silicon 使用 `DevNook_0.1.1_aarch64.dmg` / `SHA256SUMS`，Intel 使用 `DevNook_0.1.1_x64.dmg` / `SHA256SUMS-x86_64`。发布说明如实写明目标架构、系统要求和公证状态；同源版本追加新架构时保留既有资产，业务代码变化需使用新版本。
+3. 上传相应架构的 DMG 与校验文件：Apple Silicon 使用 `DevNook_0.1.2_aarch64.dmg` / `SHA256SUMS`，Intel 使用 `DevNook_0.1.2_x64.dmg` / `SHA256SUMS-x86_64`。发布说明如实写明目标架构、系统要求和公证状态；同源版本追加新架构时保留既有资产，业务代码变化需使用新版本。
 4. 从公开资产重新核对文件大小及 SHA-256；确认可下载后，再更新官网发布清单。
 
 `site/release.json` 包含共同 `version` 和逐架构 `builds`。公开下载字段应合并到对应架构的 build，例如 aarch64：
@@ -72,7 +72,7 @@ Intel 测试使用 `cargo test --release --workspace --target x86_64-apple-darwi
 ```json
 {
   "published": true,
-  "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.1/DevNook_0.1.1_aarch64.dmg"
+  "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.2/DevNook_0.1.2_aarch64.dmg"
 }
 ```
 
@@ -113,3 +113,14 @@ Intel 测试使用 `cargo test --release --workspace --target x86_64-apple-darwi
 两个应用的 Mach-O / Info.plist 均以 macOS 12.0 为最低版本，采用 ad-hoc 签名、未公证。两份 DMG 与对应校验文件均从公开地址重新下载核验，v0.1.0 Release 与四个原始资产保持不变。官网按架构登记 v0.1.1 的真实 URL / 体积 / 校验和；不覆盖旧版资产或将 Debug 包作为 Release 分发。
 
 Release workspace 在 ARM 与 x86_64 / Rosetta 上各 92 项通过、5 个既有内部 fixture 忽略。Intel 完整矩阵使用 Apple Python 3.9.6；本机 Python 3.14 的四秒期限测试曾在整套执行中超时、单项通过，未改动测试或产品期限，详情保留在开发记录及发布说明。原生双架构窗口启动与连接检查保持只读，没有更新既有 Core、runner 或重启真实服务。Intel 与 macOS 12 真机仍未验收。
+
+## v0.1.2 菜单栏发行
+
+本版源码标签为 `v0.1.2`，对应提交 `1b650f812cf66df8e52603d9d413ab11a789034f`。菜单栏功能、安装说明与完整校验值见 [v0.1.2.md](releases/v0.1.2.md)。Apple Silicon 与 Intel 均为 macOS 12+、ad-hoc 签名、未公证；公开文件已重新下载核对。
+
+| 架构 | 应用字节 | DMG 字节 | SHA-256 |
+| --- | ---: | ---: | --- |
+| Apple Silicon | 15,327,099 | 4,874,171 | `f8f51cc8a215a61a9f99697c34b5ffe6d9b769fbec17a4122df5393e05b35e2b` |
+| Intel Mac | 16,446,731 | 5,386,514 | `1442dea91316b1d9d18a6c1572a97311e657c501f6d592408128868645450d38` |
+
+旧版 v0.1.0 / v0.1.1 的资产与校验文件保持原样。两架构各 97 项 Release workspace 测试通过、5 个 fixture 忽略，38 项界面测试通过。原生菜单 / 多屏 / 全屏 Space、Intel 硬件及 macOS 12 真机的未验收范围见发布说明。

@@ -1263,3 +1263,10 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - 两架构 `pnpm tauri build --no-bundle` 与 ad-hoc app / DMG 打包成功；镜像完整性、Mach-O 架构 / 最低 macOS 12.0、Info.plist 版本 0.1.2、strict / deep 签名、Applications 链接及只读挂载逐文件 SHA-256 一致性通过。Apple Silicon app 15,327,099 字节、DMG 4,874,171 字节，SHA-256 `f8f51cc8a215a61a9f99697c34b5ffe6d9b769fbec17a4122df5393e05b35e2b`；Intel app / DMG 的实际值登记在本版发布清单与校验文件。采用固定输出路径，旧未运行 bundle 先核对进程 / lsof 后暂存至本轮忽略目录，仍在运行的 Debug 包保留。
 - 官网新增区域通过中英 × 浅暗 × 375 / 1440 共 8 个浏览器布局检查：无横向溢出，图片 / 原图链接随语言和主题匹配，图片保持紧凑宽度，发布候选不显示下载链接。已回读桌面、手机及原图；最终公开下载和线上部署检查在发布后另行登记。浏览器验证仍在同一 TaskSpace 中进行。
 - 真实 Core 与服务保全使用仅含既有 v10 只读调用的前后快照；本轮不操作真实服务、不退出旧 Core / GUI / runner，不安装 LaunchAgent，不修改 MCP 授权。没有重复尝试上一轮被锁屏阻断的原生 UI 检查；发布说明保留原生菜单 / 多显示器 / 全屏 Space、Intel / 旧 macOS 真机未完成的边界。构建 / 验证日志位于忽略目录 `.tmp/release-v0.1.2-20261115/`，产品不依赖该目录。
+
+## v0.1.2 公开下载与官网清单同步（2026-11-15）
+
+- 源码提交 `1b650f812cf66df8e52603d9d413ab11a789034f` 与注释标签 `v0.1.2` 已推送；对应远端 CI `43721260206` 全部成功。四个文件先在独立 Release 草稿核对大小 / GitHub digest 与本机一致，再发布为 latest：https://github.com/Acorn2/devnook/releases/tag/v0.1.2 。
+- 从公开地址重新下载两份 DMG 与两份校验文件，大小 / SHA-256 与本机和 GitHub digest 一致，两份 shasum -c 通过。复核 v0.1.0 / v0.1.1 的 Release 标识、标签、标题、说明、公开状态及全部资产 ID / 文件名 / 大小 / digest / URL 均保持，没有覆盖旧包。两架构 Mach-O 的 LC_BUILD_VERSION minos 均为 12.0；Intel app 16,446,731 字节，DMG 5,386,514 字节，SHA-256 `1442dea91316b1d9d18a6c1572a97311e657c501f6d592408128868645450d38`。
+- 仅在公开下载校验后，更新 `site/release.json` 两架构为 published=true，登记准确 URL；同步 README 中英、官网发布文档与 Release 构建示例，保留历史版本记录。`pnpm site:build` / `pnpm site:check` 的 8 项清单测试与 72 个本地链接 / 资源通过，发布下载区中英 × 浅暗 × 375 / 1440 的 8 个布局检查通过：版本、架构、DMG 体积、SHA-256、签名说明及下载 URL 与清单一致，无横向溢出。官网尚待本次 Pages 部署及线上复核。
+- 本机 Core PID 66122、两份服务配置版本、完整当前运行 / 历史及 runner / 服务内核身份前后快照一致，没有操作真实服务。用于演示截图的 web-ui 已通过 localhost 正常停止；本轮重新启动的 site-preview 待线上验证结束后停止。浏览器仍复用同一 TaskSpace，Ego Lite 提示更新，本轮未升级。

@@ -22,7 +22,7 @@
 
 **找项目、开服务、查端口。** DevNook 把磁盘上的代码工程、常用编辑器、启动配置和运行状态放进一个桌面工作台。你可以导入已有项目，确认启动前后端服务，集中查看日志，或从占用端口找到对应进程和目录。
 
-[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.1/DevNook_0.1.1_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.1/DevNook_0.1.1_x64.dmg) · [v0.1.1 发布说明与校验文件](https://github.com/Acorn2/devnook/releases/tag/v0.1.1) · [从源码运行](#快速开始)
+[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.2/DevNook_0.1.2_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.2/DevNook_0.1.2_x64.dmg) · [v0.1.2 发布说明与校验文件](https://github.com/Acorn2/devnook/releases/tag/v0.1.2) · [从源码运行](#快速开始)
 
 如果你同时维护几个本地工程，可以从这些任务开始：
 
@@ -106,7 +106,7 @@ TCP IPv4 / IPv6 与多地址会合并展示，托管服务和外部监听保持�
 
 ![DevNook 菜单栏快捷面板，演示数据](site/assets/tray-dark-zh.png)
 
-关闭主窗口后菜单栏入口保留，可从 Dock 或面板恢复主窗口。退出 DevNook 只退出桌面界面，已运行服务继续运行。菜单栏与主窗口共用中英、浅暗偏好，隐藏窗口暂停列表刷新。这是当前源码能力，公开安装包以对应版本的发布说明为准。
+关闭主窗口后菜单栏入口保留，可从 Dock 或面板恢复主窗口。退出 DevNook 只退出桌面界面，已运行服务继续运行。菜单栏与主窗口共用中英、浅暗偏好，隐藏窗口暂停列表刷新。安装包更新内容见对应版本的发布说明。
 
 ### 终端、AI 助手与展示偏好
 
@@ -125,7 +125,7 @@ CLI 与可选的 MCP 接入共用桌面的本机后台、项目库、服务配�
 
 ## 快速开始
 
-直接使用可从 [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest) 按芯片选择 Apple Silicon 或 Intel Mac DMG，打开后将 DevNook 拖入 Applications。当前安装包采用 ad-hoc 签名，尚未完成 Developer ID 签名或 Apple 公证；首次打开可能被 macOS 阻止，来源与校验说明见 [v0.1.1 发布说明](docs/releases/v0.1.1.md)。
+直接使用可从 [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest) 按芯片选择 Apple Silicon 或 Intel Mac DMG，打开后将 DevNook 拖入 Applications。当前安装包采用 ad-hoc 签名，尚未完成 Developer ID 签名或 Apple 公证；首次打开可能被 macOS 阻止，来源与校验说明见 [v0.1.2 发布说明](docs/releases/v0.1.2.md)。
 
 以下步骤用于从源码运行，目标平台为 **macOS 12+**，提供 Apple Silicon 与 Intel 两种构建。Intel 构建已通过 Apple Silicon 主机上的 Rosetta 测试与原生窗口启动检查，Intel 和 macOS 12 真机仍需补充验证。Windows / Linux 暂不提供安装包，后续方向见下方说明。
 
