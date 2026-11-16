@@ -124,3 +124,14 @@ Release workspace 在 ARM 与 x86_64 / Rosetta 上各 92 项通过、5 个既有
 | Intel Mac | 16,446,731 | 5,386,514 | `1442dea91316b1d9d18a6c1572a97311e657c501f6d592408128868645450d38` |
 
 旧版 v0.1.0 / v0.1.1 的资产与校验文件保持原样。两架构各 97 项 Release workspace 测试通过、5 个 fixture 忽略，38 项界面测试通过。原生菜单 / 多屏 / 全屏 Space、Intel 硬件及 macOS 12 真机的未验收范围见发布说明。
+
+## v0.1.3 颜色标签发行
+
+本版源码标签为 `v0.1.3`，对应提交 `383acde05b0df1e85458a28f5acc8fcfcb8ee89a`。项目 / 服务 / 实际端口的稳定配色、技术栈标签与官网更新见 [v0.1.3.md](releases/v0.1.3.md)。两个包均为 macOS 12+、ad-hoc 签名、未公证，公开文件已重新下载核验。
+
+| 架构 | 应用字节 | DMG 字节 | SHA-256 |
+| --- | ---: | ---: | --- |
+| Apple Silicon | 15,327,083 | 4,874,808 | `04f7bdd07a59524a180dba5c1ad6c270d62f994f765247fddcde14edb04dabff` |
+| Intel Mac | 16,446,763 | 5,387,570 | `9a89f057f7ba1c64246993db4078cfd76eef628b600734297369a4a69a982be6` |
+
+旧版 v0.1.0–v0.1.2 的 Release 与资产保持原样。两架构各 97 项 Release workspace 测试通过，5 个 fixture 忽略，38 项前端测试通过。原生窗口 / 菜单交互、Intel 硬件及 macOS 12 真机本轮未补测。

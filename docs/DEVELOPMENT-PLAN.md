@@ -1298,3 +1298,10 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - 双架构 Release 程序、ad-hoc app 与 DMG 构建成功。镜像完整性、签名完整性、Mach-O 架构 / 最低系统 12.0、Info.plist 版本 0.1.3、Applications 链接及只读挂载逐文件一致性通过。ARM app / DMG 为 15,327,083 / 4,874,808 字节，SHA-256 `04f7bdd07a59524a180dba5c1ad6c270d62f994f765247fddcde14edb04dabff`；Intel app / DMG 为 16,446,763 / 5,387,570 字节，SHA-256 `9a89f057f7ba1c64246993db4078cfd76eef628b600734297369a4a69a982be6`。清单暂登记为本地候选，公开校验后再开放下载。
 - `pnpm site:build` / `pnpm site:check` 的 8 项清单测试与 72 个本地链接 / 资源检查通过。最新静态产物通过中英 × 浅暗 × 375 / 768 / 1440 共 12 个布局、12 个服务截图切换与双语 FAQ 检查，无横向溢出、损坏图片或浏览器运行错误；截图 / 原图 / 说明匹配当前语言、主题与所选场景。已回读应用与官网实际截图。
 - 真实 Core PID 66122、两份配置版本、当前运行 / 历史及 runner / 服务内核身份前后快照一致；未退出 GUI / Core / runner 或操作真实服务。构建前先核对旧 bundle 无进程 / lsof 引用，再暂存备份。原生窗口 / 菜单交互、Intel 与旧 macOS 真机未补测，发布说明保留此边界。详细产物验证与浏览器记录位于忽略目录 `.tmp/release-v0.1.3-20261116/`，不作为运行依赖。
+
+## v0.1.3 公开下载与官网清单同步（2026-11-16）
+
+- 源码提交 `383acde05b0df1e85458a28f5acc8fcfcb8ee89a` 及注释标签 `v0.1.3` 已推送；远端 CI `43787417911` 全部成功。推送仅在本次命令中复用 GitHub CLI 凭证助手并调整 HTTP 传输参数，没有更改全局 Git 配置。v0.1.3 Release `446514940` 已公开，四个资产上传前后的大小 / GitHub digest 与本机一致。
+- 从公开下载 URL 重新取得双架构 DMG 与两个校验文件；体积、SHA-256 与本机 / GitHub digest 一致，两份 shasum -c 均通过。仅在验证后将 `site/release.json` 两架构设为 published=true、填写准确 URL，并更新双语 README、Pages / Release 文档。旧版 Release 及其全部资产保持不变。
+- 最新发布清单通过 `pnpm site:build` / `pnpm site:check` 的 8 项测试、72 个本地链接 / 资源检查；公开下载区通过中英 × 浅暗 × 375 / 1440 共 8 个浏览器布局：版本、下载 URL、DMG 体积、SHA-256 和签名说明与真实清单一致，无横向溢出。官网等待本轮手动 Pages 工作流部署后再核对线上内容。
+- 已核对旧双架构 bundle 无运行引用后移入系统废纸篓；Debug 验收应用仍有 lsof 引用，连同仍在运行的 current / latest 包继续保留，未自动退出进程。本轮 web-ui 已通过 localhost 停止，site-preview 与同一浏览器 TaskSpace 保留至公开官网验证结束。
