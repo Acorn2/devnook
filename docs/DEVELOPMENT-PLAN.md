@@ -1313,3 +1313,27 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - v0.1.3 为公开 latest，旧 v0.1.0–v0.1.2 的 3 个 Release 和 12 个原始资产保持。公开下载验证副本核对文件集合后移入系统废纸篓，固定输出目录保留最新双架构 app / DMG / 校验文件；有 lsof 引用的 Debug / current / latest 应用保留，没有自动终止进程。
 - 本轮 web-ui 与 site-preview 均已通过 localhost 正常停止。发布结束前再次核对 Core PID 66122、两份配置版本、当前运行 / 历史及服务 / runner 指纹与发布前一致；未修改 MCP 配置或创建授权。浏览器 TaskSpace 已正常结束；Ego Lite 提示可更新，本轮未升级。
 - 安装包仍为 ad-hoc、未公证；原生窗口 / 菜单交互、Intel / macOS 12 真机未补测。HTTP、浏览器、签名、DMG 与公开资产验证记录保留于 `.tmp/release-v0.1.3-20261116/`，产品不依赖临时目录。三份既有开发故事 / 缘起文档及其记录继续留在本地，本轮未纳入提交。
+
+## 端口悬浮提示与长命令阅读修正（2026-11-16）
+
+- 移除端口列表整行绑定完整启动命令的原生 `title`，避免悬停端口号时被 Java classpath 等长内容遮挡。右侧启动命令使用独立 `ProcessCommand` 展示，默认最多四行；仅实际溢出时提供展开 / 收起。展开区最多 24rem 或半个视口高度，内部滚动并支持键盘焦点；收起回到命令开头，切换进程恢复折叠，窗口缩放重新判断是否溢出。
+- 复制始终使用完整原始命令，保留换行和字面文本，成功沿用全局提示；剪贴板不可用或写入失败沿用错误反馈。新增中英复制文案，沿用字体、语义主题色和焦点样式，没有依赖、Core、协议、数据库或服务控制改动。
+- 实际验证：`pnpm check`、`pnpm test:ui`（38 项）、`pnpm build`、`pnpm format:check`、`git diff --check` 通过。ego-browser 使用真实 React 与隔离内存替身，完成中英 × 浅暗 × 1280×800 / 760×560 共 8 个场景；9,466 字符 Java 命令的默认高度约 72.35px（四行），展开高度分别为 336 / 280px。确认列表无命令 title、复制内容完整、展开 / 收起与键盘操作、收起后滚动归零、短命令无展开入口、切换进程重置，均无整页或命令区域横向溢出及浏览器运行错误；已回读浅暗实际截图。
+- 额外验证剪贴板缺失 / 拒绝写入的错误反馈、760 / 1600 宽度间的溢出判断更新、无断点长字符串、多行及含 `<script>` 字面的命令展示与完整复制。浏览器验收过程的 fixture 注入、匹配条件和尺寸测试数据经回读实际状态后修正，最终 8 场景和边界验收均通过；产品未加入演示数据。详细脚本、截图与结果位于忽略目录 `.tmp/port-command-20261116/`，不作为运行依赖。
+- 浏览器 TaskSpace 已正常结束，本轮临时 web-ui 已通过 localhost 停止。未连接真实 Core 或操作用户项目 / 服务，保留原有开发记录与未跟踪草稿。未重打包或安装原生应用，macOS WebView 未实测；Rust 代码未改，未重跑 Rust 套件。Ego Lite 提示有可用更新，本轮未升级。未提交、推送或发布。
+
+## 长命令修正的本地桌面包（2026-11-16）
+
+- 按用户要求重新打包并打开。`pnpm tauri build --debug --no-bundle` 成功，包含 TypeScript / Vite 及 Rust 原生重建；因之前清理过缓存，本次重新生成必要的 Rust 编译缓存。现有 `target/debug` GUI 及 `target/current` Core / runner 仍在运行，未覆盖其应用包。新包使用固定 `target/preview/debug/bundle/macos/DevNook.app`，通过 `CARGO_TARGET_DIR=target/preview APPLE_SIGNING_IDENTITY=- pnpm tauri bundle --debug --bundles app` 打包，未改动构建配置或版本号。
+- 新包为 arm64 Debug、版本 0.1.3，53,272,587 字节（约 50.81 MiB），采用本机 ad-hoc 签名。`codesign --verify --strict --deep`、`plutil -lint`、Mach-O 架构、Bundle ID / 版本及 ICNS 与源码一致性检查通过；主程序 SHA-256 为 `f5516f597682bcc8d53cad6dacc7d9880224d5182e546c52094c8411980b3c72`。仅在核对字面路径和同 inode 后移除本轮打包输入硬链接，没有创建额外验收 app 副本。
+- 系统 `open -n` 已打开新包，确认 GUI PID 59451 来自 preview 路径；原生辅助功能只读确认该进程可见且存在 DevNook 窗口。未自动切换页面或操作真实服务，端口悬停、命令展开 / 收起与复制留给用户实际查看，不据启动结果声称原生交互已经验收。Core PID 66122、runner PID 74688 和原 Debug GUI PID 87083 的启动时间与路径保持；有运行引用的旧包保留，未终止任何进程。
+- 详细包信息位于忽略目录 `.tmp/port-command-build-20261116/package.json`。本轮仅本机 Debug 验收包，不生成 DMG、不修改公开发布清单、不提交或推送；原生 WebView 交互、Intel / 旧 macOS 未补测。
+
+## v0.1.4 长命令交互发行准备（2026-11-16）
+
+- 用户授权提交 / 推送代码、更新官网及安装包。沿用 main，新增 v0.1.4，同步 workspace、Cargo.lock 三个本地包、前端 package.json、Tauri 与关于页版本；没有升级依赖或修改 CI / 部署配置。三份既有开发故事 / 缘起草稿及其开发记录、本地空间清理记录保留在工作区，不纳入本轮提交。
+- 官网沿用既有布局，增加中英长命令交互说明，更新四张端口页浅暗演示截图及其替代文本；同步中英 README、DESIGN 与双语发布说明。全部新截图来自真实 React 与虚构工程的内存替身，未连接真实 Core。
+- `pnpm check`、`pnpm format:check`、`pnpm test:ui`（38 项）、`pnpm build`、`cargo fmt --all -- --check`、`cargo check --workspace --locked` 与 `git diff --check` 通过。Apple Silicon 与 x86_64 / Rosetta 的 Release workspace 各 97 项通过、5 个既有 fixture 忽略，均使用 Apple Python 3.9.6，未改变测试或产品期限。
+- 双架构 Release 程序、ad-hoc app / DMG 构建成功；签名、镜像完整性、架构、版本 0.1.4 / 最低系统 12.0、Applications 链接和只读挂载逐文件一致性通过。ARM app / DMG 为 15,327,259 / 4,874,700 字节，DMG SHA-256 `921ffd056ffe46fca1d71c54eb7bba10126f48f7e3167f2a1f2159c5f0907b40`；Intel app / DMG 为 16,446,747 / 5,388,036 字节，DMG SHA-256 `7e8a89b8c61de23458d5581199adf8597b4b9d6ec26d532260fac0013272bf6f`。清单仅登记本地候选，待公开下载验证后才开放链接。
+- `pnpm site:build` / `pnpm site:check` 的 8 项发布清单测试及 72 个本地链接 / 资源检查通过。官网中英 × 浅暗 × 375 / 768 / 1440 共 12 个布局无整页横向溢出、损坏图片或浏览器错误；四张新端口图的语言、主题、Java 进程、四行命令与展开 / 复制入口匹配，复制内容完整。已回读应用与官网的实际截图。
+- 已记录真实 Core PID 66122、两份服务配置版本、运行 / 历史与 runner / 服务身份；未停止或重启。构建前核对两份旧 Release bundle 无 lsof 引用且 DMG 匹配旧公开清单，再暂存以备回退；正在运行的 Debug / current / preview 包未覆盖。原生 WebView 交互、菜单栏、Intel / macOS 12 真机未重新验收；安装包仍为 ad-hoc、未公证。详细验证位于忽略目录 `.tmp/release-v0.1.4-20261116/`。

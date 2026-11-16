@@ -306,6 +306,8 @@ export const english: Record<string, string> = {
   未知进程默认只读: 'Unknown processes are read-only by default',
   刷新进程详情: 'Refresh process details',
   启动命令: 'Launch command',
+  复制命令: 'Copy command',
+  命令已复制: 'Command copied',
   不可访问: 'Unavailable',
   运行时长: 'Uptime',
   工作目录: 'Working directory',

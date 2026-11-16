@@ -217,10 +217,11 @@ export const content = {
         bullets: [
           '按端口、PID、命令或项目路径搜索，组合项目、地址族、运行时等筛选。',
           'IPv4 / IPv6 与多地址合并展示；项目关联保留本次进程身份。',
+          '悬停端口不再弹出整段命令。长命令默认显示四行，可展开、收起或复制完整内容。',
         ],
         note: '颜色辅助识别，状态以文字与实际快照为准。未检测到监听不等于项目已停止；身份未知的进程保持只读。',
         caption: '端口详情 · 监听地址、进程命令、目录与项目归属',
-        alt: '端口管理选中 3001 端口，显示 Node.js 进程、IPv4 和 IPv6 地址以及 Meridian Shop 项目归属',
+        alt: '端口管理选中 3001 端口，显示 Java 进程、四行命令预览、展开与复制按钮、IPv4 和 IPv6 地址以及 Meridian Shop 项目归属',
       },
       {
         id: 'plans',
@@ -474,11 +475,12 @@ export const content = {
         bullets: [
           'Search ports, PIDs, commands, or paths. Combine project, address family, runtime, and other filters.',
           'Group IPv4, IPv6, and multiple addresses. Project associations retain the current process identity.',
+          'Port hover stays clear. Long commands show four lines by default, with expand, collapse, and full-command copy.',
         ],
         note: 'Color helps identify projects; text and current snapshots describe state. No detected listener does not mean a project has stopped. Unknown processes stay read-only.',
         caption:
           'Port details · Listening addresses, process command, directory, and project ownership',
-        alt: 'Port 3001 selected with the Node.js process, IPv4 and IPv6 listeners, and its Meridian Shop project association',
+        alt: 'Port 3001 selected with a Java process, a four-line command preview, expand and copy controls, IPv4 and IPv6 listeners, and its Meridian Shop project association',
       },
       {
         id: 'plans',

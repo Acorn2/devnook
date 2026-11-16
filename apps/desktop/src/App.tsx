@@ -41,6 +41,7 @@ import WorkspacesPage from './WorkspacesPage';
 import AdvancedIntegrations from './AgentsPage';
 import Select from './Select';
 import { filterPortBindings, portRows, runtimeOptions } from './PortPresentation';
+import ProcessCommand from './ProcessCommand';
 import CategoryPicker from './CategoryPicker';
 import { ProjectBatchBar, ProjectCheckbox } from './ProjectSelection';
 import { useProjectPresentation } from './ProjectPresentation';
@@ -1678,7 +1679,6 @@ function PortsPage({
                 key={`${p.pid}:${p.port}`}
                 className={`port-row ${selected === p.pid ? 'selected' : ''}`}
                 data-color={projectColor(p.project_id)}
-                title={p.command || p.name}
                 onClick={() => void choose(p.pid)}
               >
                 <div className="port-number">
@@ -1779,7 +1779,12 @@ function PortsPage({
                 <div>
                   <dt>{t('启动命令')}</dt>
                   <dd>
-                    <code>{detail.command}</code>
+                    <ProcessCommand
+                      key={detail.fingerprint}
+                      command={detail.command}
+                      notify={notify}
+                      report={report}
+                    />
                   </dd>
                 </div>
                 <div>
@@ -2203,7 +2208,7 @@ function SettingsPage({
         />
         <div>
           <strong>
-            DevNook <span>v0.1.3</span>
+            DevNook <span>v0.1.4</span>
           </strong>
           <p>Your Local Development Workspace</p>
           <p>{t('管理本地项目、服务和端口，支持终端命令与可选的 AI 助手接入。')}</p>

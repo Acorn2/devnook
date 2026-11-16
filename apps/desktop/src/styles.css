@@ -60,6 +60,7 @@ select:focus-visible {
 .service-list:focus-visible,
 .service-log:focus-visible,
 .process-panel:focus-visible,
+.process-command-preview:focus-visible,
 .project-results:focus-visible,
 .port-row:focus-visible {
   outline: 2px solid var(--accent);
@@ -2397,6 +2398,30 @@ main.workbench-page {
 }
 .process-fields dd > code {
   font-size: 0.76rem;
+}
+.process-command-preview {
+  font-size: 0.76rem;
+  line-height: 1.7;
+  max-height: 6.8em;
+  overflow: hidden;
+}
+.process-command-preview.expanded {
+  max-height: min(24rem, 50vh);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+.process-command-preview code {
+  display: block;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.process-command-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 .process-numbers {
   display: grid;

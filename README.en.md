@@ -89,6 +89,8 @@ Service details include “Let AI continue managing this service” to copy its 
 
 Search ports, PIDs, commands, or paths. Inspect the process command, executable, working directory, start time, and project association. Combine filters for project, address family, runtime, launch source, and more.
 
+Long commands show four lines by default, with expand, collapse, and full-command copy. Hovering a port no longer opens the entire launch command.
+
 ![Port inspection with actual listening addresses, process command, working directory, and project association](site/assets/ports-dark-en.png)
 
 TCP IPv4 / IPv6 and multiple addresses are grouped. Managed services and external listeners remain distinct. **No detected listener does not mean a project has stopped.** Processes with unknown identity or unverifiable ownership remain read-only. External stops require identity checks and PID confirmation.
