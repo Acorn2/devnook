@@ -135,3 +135,15 @@ Release workspace 在 ARM 与 x86_64 / Rosetta 上各 92 项通过、5 个既有
 | Intel Mac | 16,446,763 | 5,387,570 | `9a89f057f7ba1c64246993db4078cfd76eef628b600734297369a4a69a982be6` |
 
 旧版 v0.1.0–v0.1.2 的 Release 与资产保持原样。两架构各 97 项 Release workspace 测试通过，5 个 fixture 忽略，38 项前端测试通过。原生窗口 / 菜单交互、Intel 硬件及 macOS 12 真机本轮未补测。
+
+
+## v0.1.4 长命令交互发行
+
+本版源码标签为 `v0.1.4`，对应提交 `ef302f2f898545e0ff91ae1ab0afc0f72d2a18d9`。端口悬浮提示修复、四行命令预览、展开 / 收起 / 复制与官网更新见 [v0.1.4.md](releases/v0.1.4.md)。两个包均为 macOS 12+、ad-hoc 签名、未公证，公开文件已重新下载核验。
+
+| 架构 | 应用字节 | DMG 字节 | SHA-256 |
+| --- | ---: | ---: | --- |
+| Apple Silicon | 15,327,259 | 4,874,700 | `921ffd056ffe46fca1d71c54eb7bba10126f48f7e3167f2a1f2159c5f0907b40` |
+| Intel Mac | 16,446,747 | 5,388,036 | `7e8a89b8c61de23458d5581199adf8597b4b9d6ec26d532260fac0013272bf6f` |
+
+旧版 v0.1.0–v0.1.3 的 Release 与资产保持原样。两架构各 97 项 Release workspace 测试通过，5 个 fixture 忽略，38 项前端测试通过；源码 CI [43828947721](https://github.com/Acorn2/devnook/actions/runs/43828947721) 成功。原生 WebView 交互、菜单栏、Intel 硬件及 macOS 12 真机本轮未重新验收。
