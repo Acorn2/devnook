@@ -48,6 +48,7 @@ import ScanModal from './ScanModal';
 import OpenWith, { AppSelect, appName } from './OpenWith';
 import { open as chooseApplication } from '@tauri-apps/plugin-dialog';
 import { CopyButton, EmptyState, Modal, ProjectGlyph, Tags } from './components';
+import { projectColor } from './ColorLabels';
 import {
   defaults,
   typeNames,
@@ -463,6 +464,7 @@ export default function App() {
           <article
             className={`project-card ${batchMode && selectedProjectIds.includes(project.id) ? 'project-selected' : ''}`}
             key={project.id}
+            data-color={projectColor(project.id)}
           >
             <div className="project-card-top">
               {batchMode && (
@@ -1675,12 +1677,13 @@ function PortsPage({
               <button
                 key={`${p.pid}:${p.port}`}
                 className={`port-row ${selected === p.pid ? 'selected' : ''}`}
+                data-color={projectColor(p.project_id)}
                 title={p.command || p.name}
                 onClick={() => void choose(p.pid)}
               >
                 <div className="port-number">
-                  <span className="status-dot" />
-                  <strong>:{p.port}</strong>
+                  <span className="status-dot" aria-hidden="true" />
+                  <strong className="port-chip">:{p.port}</strong>
                   <span>{p.name}</span>
                   <ChevronRight size={14} />
                 </div>
@@ -1689,10 +1692,19 @@ function PortsPage({
                   <span>PID {p.pid}</span>
                 </div>
                 <span className="port-source">
-                  {p.source === 'DEVNOOK' ? t('DevNook 托管') : t('外部发现')} · {p.family}
-                  {ports.some((b) => b.pid === p.pid && b.port === p.port && b.family !== p.family)
-                    ? t(' + 双栈')
-                    : ''}
+                  <span
+                    className={`source-label ${p.source === 'DEVNOOK' ? 'managed' : 'external'}`}
+                  >
+                    {p.source === 'DEVNOOK' ? t('DevNook 托管') : t('外部发现')}
+                  </span>
+                  <span>
+                    {p.family}
+                    {ports.some(
+                      (b) => b.pid === p.pid && b.port === p.port && b.family !== p.family,
+                    )
+                      ? t(' + 双栈')
+                      : ''}
+                  </span>
                 </span>
               </button>
             ))
@@ -1752,7 +1764,7 @@ function PortsPage({
                   <RefreshCw size={16} />
                 </button>
               </div>
-              <div className="process-binding-tags">
+              <div className="process-binding-tags" data-color={projectColor(detail.project_id)}>
                 {detail.bindings.map((b, i) => (
                   <span key={`${b.family}:${b.address}:${b.port}:${i}`}>
                     <span className="status-dot" />
@@ -2191,7 +2203,7 @@ function SettingsPage({
         />
         <div>
           <strong>
-            DevNook <span>v0.1.2</span>
+            DevNook <span>v0.1.3</span>
           </strong>
           <p>Your Local Development Workspace</p>
           <p>{t('管理本地项目、服务和端口，支持终端命令与可选的 AI 助手接入。')}</p>

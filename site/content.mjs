@@ -149,6 +149,7 @@ export const content = {
         bullets: [
           '导入后按名称、路径、技术栈或监听状态查找，支持收藏、分类与批量分类。',
           '紧凑列表、卡片、表格按习惯切换；用 VS Code、Cursor、JetBrains 等已安装应用打开。',
+          '技术栈使用彩色标签；同一项目的图标和实际端口保持一致配色，跨页面更容易辨认。',
         ],
         note: '扫描与导入都不会执行项目命令；非标准目录可以选择深度补扫。',
         caption: '导入预览 · 项目边界、前后端服务候选与共享组件',
@@ -199,7 +200,7 @@ export const content = {
         title: '不切回主窗口，\n也能核对服务。',
         body: '点击 macOS 菜单栏的 N 图标，集中查看运行中、异常及收藏项目的服务。单服务项目直接一行，多服务项目才显示分组标题。',
         bullets: [
-          '核对实际端口，进入服务详情，或正常停止 DevNook 托管的运行。',
+          '核对带项目配色的实际端口，进入服务详情，或正常停止 DevNook 托管的运行。',
           '长列表独立滚动，底部入口固定；按项目、服务或端口搜索，也可用 ⌘F 唤出搜索。',
           '仅近期已确认的单一网页入口显示浏览器图标；API 与未知端口不会出现地球按钮。',
         ],
@@ -217,7 +218,7 @@ export const content = {
           '按端口、PID、命令或项目路径搜索，组合项目、地址族、运行时等筛选。',
           'IPv4 / IPv6 与多地址合并展示；项目关联保留本次进程身份。',
         ],
-        note: '未检测到监听不等于项目已停止。身份未知或归属无法核验的进程保持只读。',
+        note: '颜色辅助识别，状态以文字与实际快照为准。未检测到监听不等于项目已停止；身份未知的进程保持只读。',
         caption: '端口详情 · 监听地址、进程命令、目录与项目归属',
         alt: '端口管理选中 3001 端口，显示 Node.js 进程、IPv4 和 IPv6 地址以及 Meridian Shop 项目归属',
       },
@@ -405,6 +406,7 @@ export const content = {
         bullets: [
           'Search by name, path, stack, or listening status. Use favorites, categories, and bulk categorization.',
           'Choose a compact list, cards, or a table. Open projects in installed apps such as VS Code, Cursor, and JetBrains IDEs.',
+          'Colored stack labels and consistent project colors connect project icons with actual ports across views.',
         ],
         note: 'Scanning and importing execute no project commands. Use a deeper scan for nonstandard layouts.',
         caption: 'Import preview · Project boundaries, service candidates, and shared components',
@@ -455,7 +457,7 @@ export const content = {
         title: 'Check services without switching windows.',
         body: 'Click the N icon in the macOS menu bar for running services, services needing attention, and services in favorite projects. Single-service projects use one row; only multiple services need a project heading.',
         bullets: [
-          'Check actual ports, jump to details, or gracefully stop a DevNook-managed run.',
+          'Check actual ports in their project colors, jump to details, or gracefully stop a DevNook-managed run.',
           'Long lists scroll above a fixed footer. Search projects, services, or ports; use ⌘F to bring up search.',
           'Browser icons require a recently confirmed single web entry. APIs and unknown ports do not get a globe.',
         ],
@@ -473,7 +475,7 @@ export const content = {
           'Search ports, PIDs, commands, or paths. Combine project, address family, runtime, and other filters.',
           'Group IPv4, IPv6, and multiple addresses. Project associations retain the current process identity.',
         ],
-        note: 'No detected listener does not mean a project has stopped. Processes with unknown identity or unverifiable ownership remain read-only.',
+        note: 'Color helps identify projects; text and current snapshots describe state. No detected listener does not mean a project has stopped. Unknown processes stay read-only.',
         caption:
           'Port details · Listening addresses, process command, directory, and project ownership',
         alt: 'Port 3001 selected with the Node.js process, IPv4 and IPv6 listeners, and its Meridian Shop project association',

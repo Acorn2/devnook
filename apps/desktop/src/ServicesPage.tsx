@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { call } from './api';
 import { Modal } from './components';
+import { projectColor } from './ColorLabels';
 import ExternalServiceConfirmation from './ExternalServiceConfirmation';
 import ServiceConflicts from './ServiceConflicts';
 import ServiceBrowser, {
@@ -761,12 +762,15 @@ export default function ServicesPage({
           {visible.map((v) => (
             <div
               key={v.definition.id}
+              data-color={projectColor(v.definition.project_id)}
               className={'service-row ' + (selected === v.definition.id ? 'selected' : '')}
             >
               <button className="service-row-select" onClick={() => setSelected(v.definition.id)}>
                 <span className="service-row-heading">
                   <span className="service-row-title">
-                    <SquareTerminal size={17} />
+                    <span className="service-identity-icon" aria-hidden="true">
+                      <SquareTerminal size={15} />
+                    </span>
                     <strong title={managedIdentity(v.definition).title}>
                       {managedIdentity(v.definition).title}
                     </strong>
@@ -861,6 +865,7 @@ export default function ServicesPage({
                 'service-row ' + (selected === `external:${bindings[0].pid}` ? 'selected' : '')
               }
               key={bindings[0].pid}
+              data-color={projectColor(bindings[0].project_id)}
             >
               <button
                 className="service-row-select"
@@ -868,7 +873,9 @@ export default function ServicesPage({
               >
                 <span className="service-row-heading">
                   <span className="service-row-title">
-                    <Activity size={17} />
+                    <span className="service-identity-icon" aria-hidden="true">
+                      <Activity size={15} />
+                    </span>
                     <strong
                       className={project ? 'service-component-title' : undefined}
                       title={externalIdentity(bindings).title}
@@ -876,12 +883,17 @@ export default function ServicesPage({
                       {externalIdentity(bindings).title}
                     </strong>
                   </span>
-                  <span className={'service-badge state-' + (portsAvailable ? 'ready' : 'unknown')}>
+                  <span
+                    className={'service-badge state-' + (portsAvailable ? 'listening' : 'unknown')}
+                  >
                     {portsAvailable ? t('正在监听') : t('端口状态未知')}
                   </span>
                 </span>
                 <span className="service-row-meta">
-                  <span className="service-project" title={externalIdentity(bindings).qualifier}>
+                  <span
+                    className="service-project external-qualifier"
+                    title={externalIdentity(bindings).qualifier}
+                  >
                     {project ? bindings[0].name : externalIdentity(bindings).qualifier}
                   </span>
                   {!project && <small className="service-runtime">{bindings[0].name}</small>}
@@ -904,6 +916,7 @@ export default function ServicesPage({
           className={
             'service-detail' + (view && !externalView && !draft ? ' service-detail-managed' : '')
           }
+          data-color={projectColor(externalView?.[0].project_id || view?.definition.project_id)}
         >
           {externalView ? (
             <ExternalProcessDetail

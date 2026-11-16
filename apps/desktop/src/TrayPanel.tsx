@@ -28,6 +28,7 @@ import {
   type TrayGroup,
 } from './TrayPresentation';
 import { serviceStateLabel } from './ServicePresentation';
+import { projectColor } from './ColorLabels';
 import { useWindowVisible } from './WindowVisibility';
 import type { BrowserAddress, BrowserShortcut, PortBinding, Project, ServiceView } from './types';
 import './tray.css';
@@ -323,6 +324,7 @@ export default function TrayPanel() {
                   <section
                     className={`tray-group ${group.compact ? 'tray-compact-group' : ''}`}
                     key={group.id}
+                    data-color={projectColor(group.id)}
                     aria-label={group.name}
                   >
                     {!group.compact && <h2 title={group.name}>{group.name}</h2>}

@@ -65,6 +65,7 @@ Open a project’s services, review suggestions derived from its manifests, or e
 - The global service list leads with project names; a project's own list leads with service names. Names, relative directories, and actual ports distinguish services in the same project, with matching details on the right.
 - Inspect runtime state, actual listeners, launch commands, and working directories. Expand process details when needed.
 - Read stdout / stderr by run, search log lines, and retain historical runs separately from configuration.
+- Project icons, service markers, and actual ports share consistent project colors. Stack labels have their own colors; state keeps separate colors and text in both themes.
 - Started services and logs continue in the local backend after you close the app window.
 
 ![Services distinguished by project and component, with an HTTP URL and browser button for a web page](site/assets/services-dark-en.png)

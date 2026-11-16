@@ -32,7 +32,11 @@ export function PortSummary({
         .join(' · ') || (compact ? t('无 TCP 监听') : t('未检测到 TCP 监听'))
     : t('端口状态未知');
   return (
-    <span className="service-port-summary" title={summary}>
+    <span
+      className="service-port-summary"
+      title={summary}
+      data-listening={available && bindings.length > 0}
+    >
       <Network size={13} />
       <span>{summary}</span>
     </span>
@@ -102,7 +106,7 @@ export function ExternalProcessDetail({
       <div className="service-detail-heading">
         <div className="service-detail-title">
           <h2>{identity.title}</h2>
-          <span className={'service-badge state-' + (portsAvailable ? 'ready' : 'unknown')}>
+          <span className={'service-badge state-' + (portsAvailable ? 'listening' : 'unknown')}>
             {portsAvailable ? t('正在监听') : t('端口状态未知')}
           </span>
         </div>

@@ -983,9 +983,6 @@ h1 {
   color: var(--muted);
   border-radius: 0.25rem;
 }
-.tags > .tag-green {
-  color: var(--text-secondary);
-}
 .project-status {
   display: flex;
   align-items: center;

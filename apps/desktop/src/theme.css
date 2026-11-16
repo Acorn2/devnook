@@ -36,6 +36,12 @@
   --orange: #a55021;
   --orange-bg: #fdf0e7;
   --orange-line: #dfb393;
+  --violet: #6e42b8;
+  --violet-bg: #f2ecfc;
+  --violet-line: #c9b4e8;
+  --rose: #a84075;
+  --rose-bg: #fbeaf3;
+  --rose-line: #dfb3c9;
   --on-accent: #f9fcff;
   --primary-start: #315cda;
   --primary-end: #08758f;
@@ -85,6 +91,12 @@
   --orange: #f2b68c;
   --orange-bg: #3a2c25;
   --orange-line: #74523b;
+  --violet: #c9adff;
+  --violet-bg: #33264a;
+  --violet-line: #655080;
+  --rose: #f2accb;
+  --rose-bg: #412738;
+  --rose-line: #79516a;
   --on-accent: #f9fcff;
   --primary-start: #315cda;
   --primary-end: #08758f;
@@ -134,6 +146,12 @@
     --orange: oklch(52.93% 0.12673 46.426);
     --orange-bg: oklch(96.291% 0.01852 57.219);
     --orange-line: oklch(79.823% 0.06718 57.616);
+    --violet: oklch(47.82% 0.175 297);
+    --violet-bg: oklch(95.29% 0.022 305);
+    --violet-line: oklch(80.58% 0.076 305);
+    --rose: oklch(51.98% 0.146 349);
+    --rose-bg: oklch(95.39% 0.023 347);
+    --rose-line: oklch(80.89% 0.059 347);
     --on-accent: oklch(98.965% 0.00511 247.876);
     --primary-start: oklch(52.245% 0.19895 265.491);
     --primary-end: oklch(52.123% 0.09369 220.868);
@@ -182,6 +200,12 @@
     --orange: oklch(82.167% 0.08939 56.105);
     --orange-bg: oklch(30.687% 0.02417 47.914);
     --orange-line: oklch(46.931% 0.05746 54.909);
+    --violet: oklch(80.12% 0.117 302);
+    --violet-bg: oklch(29.93% 0.064 307);
+    --violet-line: oklch(46.73% 0.081 307);
+    --rose: oklch(81.69% 0.091 348);
+    --rose-bg: oklch(30.45% 0.046 345);
+    --rose-line: oklch(47.7% 0.064 343);
     --on-accent: oklch(98.965% 0.00511 247.876);
     --primary-start: oklch(52.245% 0.19895 265.491);
     --primary-end: oklch(52.123% 0.09369 220.868);
@@ -410,16 +434,6 @@ select,
 .favorite.is-favorite {
   color: var(--favorite);
 }
-.tags > span {
-  color: var(--muted);
-  background: var(--surface-subtle);
-  border-color: var(--line);
-}
-.tags > .tag-green {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
-}
 .port-list,
 .service-list {
   background: var(--input);
@@ -459,17 +473,22 @@ select,
   background: var(--success-bg);
   border-color: var(--success-line);
 }
+.state-listening,
+.state-running {
+  color: var(--cyan);
+  background: var(--cyan-bg);
+  border-color: var(--cyan-line);
+}
 .state-starting,
-.state-running,
 .state-stopping,
+.state-unknown,
 .service-warning {
   color: var(--warning);
   background: var(--warning-bg);
   border-color: var(--warning-line);
 }
 .state-crashed,
-.state-blocked,
-.state-unknown {
+.state-blocked {
   color: var(--danger);
   background: var(--danger-bg);
   border-color: var(--danger-line);
@@ -478,6 +497,120 @@ select,
   color: var(--muted);
   background: var(--surface-subtle);
   border-color: var(--line);
+}
+
+/* Identity colors are shared across views; state colors remain independent. */
+[data-color] {
+  --label-ink: var(--muted);
+  --label-bg: var(--surface-subtle);
+  --label-line: var(--line);
+}
+[data-color='blue'] {
+  --label-ink: var(--accent);
+  --label-bg: var(--accent-soft);
+  --label-line: var(--accent-line);
+}
+[data-color='violet'] {
+  --label-ink: var(--violet);
+  --label-bg: var(--violet-bg);
+  --label-line: var(--violet-line);
+}
+[data-color='teal'] {
+  --label-ink: var(--cyan);
+  --label-bg: var(--cyan-bg);
+  --label-line: var(--cyan-line);
+}
+[data-color='amber'] {
+  --label-ink: var(--warning);
+  --label-bg: var(--warning-bg);
+  --label-line: var(--warning-line);
+}
+[data-color='rose'] {
+  --label-ink: var(--rose);
+  --label-bg: var(--rose-bg);
+  --label-line: var(--rose-line);
+}
+[data-color='orange'] {
+  --label-ink: var(--orange);
+  --label-bg: var(--orange-bg);
+  --label-line: var(--orange-line);
+}
+.tags > span,
+.project-card .project-glyph,
+.service-identity-icon,
+.port-number .port-chip,
+.process-binding-tags > span,
+.service-port-summary[data-listening='true'],
+.service-detail .listening-bindings > span {
+  color: var(--label-ink, var(--muted));
+  background: var(--label-bg, var(--surface-subtle));
+  border-color: var(--label-line, var(--line));
+}
+.tags > span {
+  border-radius: 0.35rem;
+  font-weight: 500;
+}
+.service-identity-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--label-line);
+  border-radius: 0.5rem;
+}
+.port-number .port-chip {
+  padding: 0.12rem 0.45rem;
+  border: 1px solid var(--label-line);
+  border-radius: 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.port-source {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+}
+.source-label {
+  display: inline-flex;
+  padding: 0.08rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  line-height: 1.5;
+}
+.source-label.managed {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.source-label.external {
+  color: var(--cyan);
+  background: var(--cyan-bg);
+  border-color: var(--cyan-line);
+}
+.service-port-summary[data-listening='true'] {
+  display: inline-flex;
+  padding: 0.08rem 0.4rem;
+  border: 1px solid var(--label-line, var(--line));
+  border-radius: 0.35rem;
+}
+.service-row-meta .external-qualifier {
+  color: var(--label-ink);
+}
+.service-detail .listening-bindings small,
+.process-binding-tags small {
+  color: inherit;
+}
+.service-badge.state-stopped .status-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.service-badge.state-crashed .status-dot,
+.service-badge.state-blocked .status-dot {
+  border-radius: 1px;
 }
 .art-folder {
   color: var(--accent);

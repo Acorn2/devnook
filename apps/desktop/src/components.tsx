@@ -2,6 +2,7 @@ import { t } from './i18n';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { ArrowUpRight, Check, Copy, Folder, X } from 'lucide-react';
 import { typeNames, type Candidate } from './types';
+import { technologyColor } from './ColorLabels';
 
 export function Modal({
   title,
@@ -79,11 +80,15 @@ export function ProjectGlyph({ type, small = false }: { type: string; small?: bo
 export function Tags({ project }: { project: Candidate }) {
   return (
     <div className="tags">
-      <span>{t(typeNames[project.project_type]) || project.project_type}</span>
+      <span data-color={technologyColor(project.project_type)}>
+        {t(typeNames[project.project_type]) || project.project_type}
+      </span>
       {project.frameworks.slice(0, 3).map((v) => (
-        <span key={v}>{v}</span>
+        <span key={v} data-color={technologyColor(v)}>
+          {v}
+        </span>
       ))}
-      {project.is_monorepo && <span className="tag-green">Monorepo</span>}
+      {project.is_monorepo && <span data-color="violet">Monorepo</span>}
     </div>
   );
 }
