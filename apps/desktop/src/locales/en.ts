@@ -165,6 +165,8 @@ export const english: Record<string, string> = {
   本地项目: 'Local projects',
   取消收藏: 'Unfavorite',
   收藏: 'Favorite',
+  '收藏项目 {{0}}': 'Favorite project {{0}}',
+  '取消收藏项目 {{0}}': 'Unfavorite project {{0}}',
   '发现 {{0}} 个服务监听进程': 'Listening service processes: {{0}}',
   未检测到服务监听: 'No service listener detected',
   监听状态未获取: 'Listening status not loaded',

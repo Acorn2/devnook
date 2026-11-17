@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Square,
   SquareTerminal,
+  Star,
   Trash2,
   X,
 } from 'lucide-react';
@@ -128,6 +129,7 @@ export default function ServicesPage({
   projectId,
   back,
   editProject,
+  updateProject,
   launchProject,
   inspectPort,
   showAllServices,
@@ -148,6 +150,7 @@ export default function ServicesPage({
   projectId: string;
   back: () => void;
   editProject: (project: Project) => void;
+  updateProject: (project: Project) => Promise<void>;
   launchProject: (project: Project) => Promise<void>;
   inspectPort: (pid: number) => void;
   showAllServices: () => void;
@@ -174,6 +177,8 @@ export default function ServicesPage({
   const [logError, setLogError] = useState('');
   const [clearLog, setClearLog] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState('');
+  const favoriteSaving = useRef(false);
   const [fetchError, setFetchError] = useState('');
   const project = projects.find((p) => p.id === projectId);
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name || t('已移除的项目');
@@ -614,6 +619,38 @@ export default function ServicesPage({
   const hasChildDraft = drafts.some(
     (d) => d.definition.working_directory !== project?.canonical_path,
   );
+  async function toggleFavorite(target: Project) {
+    if (disabled || favoriteSaving.current) return;
+    favoriteSaving.current = true;
+    setFavoriteBusy(target.id);
+    try {
+      await updateProject({ ...target, is_favorite: !target.is_favorite });
+    } finally {
+      favoriteSaving.current = false;
+      setFavoriteBusy('');
+    }
+  }
+  function favoriteButton(id: string | null) {
+    const target = projects.find((p) => p.id === id);
+    if (!target) return null;
+    const label = target.is_favorite
+      ? t('取消收藏项目 {{0}}', [target.name])
+      : t('收藏项目 {{0}}', [target.name]);
+    return (
+      <button
+        type="button"
+        className={`icon-button favorite ${target.is_favorite ? 'is-favorite' : ''}`}
+        aria-label={label}
+        title={label}
+        aria-pressed={target.is_favorite}
+        aria-busy={favoriteBusy === target.id}
+        disabled={disabled || !!favoriteBusy}
+        onClick={() => void toggleFavorite(target).catch(() => {})}
+      >
+        <Star size={16} fill={target.is_favorite ? 'currentColor' : 'none'} />
+      </button>
+    );
+  }
   function draftRow(value: ServiceDraft) {
     return (
       <div
@@ -632,14 +669,17 @@ export default function ServicesPage({
           </span>
           <span className="service-project">{value.command || t('填写启动命令后即可运行')}</span>
         </button>
-        <button
-          className="text-button"
-          disabled={disabled || busy}
-          onClick={() => void startDraft(value)}
-        >
-          <Play size={13} />
-          {value.command ? t('启动…') : t('填写命令')}
-        </button>
+        <div className="service-row-actions">
+          {favoriteButton(value.definition.project_id)}
+          <button
+            className="text-button"
+            disabled={disabled || busy}
+            onClick={() => void startDraft(value)}
+          >
+            <Play size={13} />
+            {value.command ? t('启动…') : t('填写命令')}
+          </button>
+        </div>
       </div>
     );
   }
@@ -791,6 +831,7 @@ export default function ServicesPage({
                 </span>
               </button>
               <div className="service-row-actions">
+                {favoriteButton(v.definition.project_id)}
                 <button
                   className="text-button"
                   disabled={
@@ -900,6 +941,7 @@ export default function ServicesPage({
                   {project && <small className="service-runtime">{t('外部')}</small>}
                 </span>
               </button>
+              <div className="service-row-actions">{favoriteButton(bindings[0].project_id)}</div>
             </div>
           ))}
           {!external.length && (!portsAvailable || query) && (

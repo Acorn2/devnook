@@ -1352,3 +1352,29 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - GitHub latest 已核实为 v0.1.4。旧四个 Release 的 16 个资产 ID、名称、体积、digest 和下载 URL 与发布前完全一致。核对字面路径及无 lsof 引用后，将两份旧 Release bundle 备份、已正常退出的旧 Debug app 和本轮公开下载验证副本移入系统废纸篓；保留最新双架构 app / DMG / 校验文件及仍有运行引用的 current / preview 包，未永久删除或退出用户进程。
 - 本轮 web-ui、site-preview 均由 localhost 正常停止，浏览器 TaskSpace 正常结束。最终真实 Core PID 66122、两份配置版本、当前运行 / 历史及 runner / 服务内核身份与发布前快照一致，preview GUI PID 59451 仍在；未修改 MCP 客户端或创建授权。三份既有开发故事 / 缘起草稿 SHA-256 未变，其记录及空间清理记录继续仅留本地。
 - 发行包仍为 ad-hoc、未公证；原生 WebView 交互、菜单栏、Intel / macOS 12 真机未重新验收。HTTP、线上浏览器、包完整性及旧资产保全记录位于忽略目录 `.tmp/release-v0.1.4-20261116/`，不作为运行依赖。线上浏览器验收复用了本地下载区 JSON 输出名，已另存线上结果并保留本地通过摘要、脚本和 12 张截图。Ego Lite 提示有可用更新，本轮未升级。
+
+
+## 服务列表快速收藏项目（2026-11-17）
+
+- 用户确认列表星标方案后实现：服务配置、项目内未保存的启动建议与已关联外部服务均可直接收藏 / 取消收藏所属项目。仅通过已有项目 ID 找到记录后显示入口；同一项目的所有服务行与侧栏“已收藏”同步，不重排列表或切换当前详情，也不触发服务启动、停止、保存或接管。
+- 复用 App 的项目更新与 Core `edit_project`，保留项目名称、分类及默认应用；保存期间禁用重复收藏并设置忙碌状态，失败由既有错误提示反馈，收藏保持原值并可重试。星标使用主题收藏色、空心 / 实心、键盘按钮及中英项目名提示，不新增依赖、Core 协议或数据库字段。同步 `DESIGN.md` 的服务行约定。
+- 实际验证：`pnpm check`、`pnpm test:ui`（38 项）、`pnpm build`、`pnpm format:check` 与 `git diff --check` 通过。ego-browser 使用真实 React 与隔离内存替身，完成中英 × 浅暗 × 1280×800 / 760×560 共 8 个场景：托管与外部条目共享项目收藏、仅外部服务项目收藏、取消收藏、项目库筛选与数量同步、当前选中项及顺序保持，均无整页 / 服务行横向溢出或浏览器运行错误。已回读浅暗及英文小窗口的实际截图。
+- 额外验证保存延迟期间重复点击仅一个请求、保存失败保持状态并显示错误及重试、Space / Enter 键盘操作、即时语言切换不保存业务数据、端口快照失败时项目收藏可用、项目记录缺失时不显示星标，以及项目内启动建议 / 搜索筛选清除后的四行同步。写操作仅为内存替身的 `edit_project`，未连接真实 Core、数据库或操作用户项目 / 服务。早期验收脚本的跨轮初始化、快照调用及语言 / 端口状态断言经实际页面回读校正，随后完成相关验收；详细记录位于忽略目录 `.tmp/service-favorites-20261117/`，产品不依赖该目录。
+- 浏览器 TaskSpace 已正常结束，本轮启动的 web-ui 已通过 localhost 停止。未重新打包原生应用或验证 macOS WebView；Rust 实现未改，未重跑 Rust 套件。保留开发计划既有修改和四份未跟踪草稿，未提交、推送或发布。Ego Lite 提示可更新，本轮未升级。
+
+## 快速收藏的本地桌面包（2026-11-17）
+
+- 按用户要求重新打包并打开包含项目收藏星标的应用。`pnpm tauri build --debug --no-bundle` 成功，包含 TypeScript / Vite 与 Rust 原生重建；清理过的 Rust 依赖缓存已重新生成。`APPLE_SIGNING_IDENTITY=- pnpm tauri bundle --debug --bundles app` 成功，固定包为 `target/debug/bundle/macos/DevNook.app`，没有覆盖仍由旧 GUI / Core / runner 使用的 preview 包。
+- 新包为 arm64 Debug、版本 0.1.4，53,271,003 字节，采用本机 ad-hoc 签名。`codesign --verify --strict --deep`、`plutil -lint`、Mach-O 架构、Bundle ID / 版本及 ICNS 与源码一致性检查通过；主程序 SHA-256 为 `76dbb9f7f1cae9e6abcb76417efc20cc9546cbe74a074a29be781d357516eb28`。
+- 系统 `open -n` 已打开新包，GUI PID 13864 来自固定 Debug app；原生辅助功能只读确认该应用处于前台、未隐藏且存在一个标题为 DevNook 的窗口。收藏交互由用户查看，本轮没有自动修改真实收藏或操作服务，也不据窗口启动结果声称 macOS WebView 的星标交互已验收。
+- 核对字面路径、符号链接、进程与 lsof 无引用后，将未使用的旧 `target/current/debug/bundle/macos/DevNook.app` 移入系统废纸篓。保留当前新包、仍有运行引用的 preview 包及最新公开双架构 Release 资产；没有终止进程。旧 GUI PID 59451、Core PID 90306 与 runner PID 90632 的启动时间及可执行路径保持。
+- 包信息、窗口检查与清理记录位于忽略目录 `.tmp/service-favorites-build-20261117/`。未生成 DMG、未修改官网发布清单或版本号、未提交或推送；原有草稿与工作区修改保留。`git diff --check` 通过。
+
+
+## v0.1.5 快速收藏发行准备（2026-11-17）
+
+- 用户授权提交 / 推送与更新安装包。沿用 main，收藏功能发布为 v0.1.5；同步 workspace、Cargo.lock 三个本地包、前端 package.json、Tauri 与关于页版本，更新使用说明与双语发行说明。不升级依赖或修改 CI / 部署配置；四份既有草稿及其记录、空间清理记录留在本地，不纳入提交。
+- `pnpm check`、`pnpm format:check`、`pnpm test:ui`（38 项）、`cargo fmt --all -- --check` 与 `git diff --check` 通过；双架构 Tauri Release 构建包含前端构建。Apple Silicon 与 x86_64 / Rosetta 的 Release workspace 各 97 项通过、5 个 fixture 忽略，优先使用 Apple Python 3.9.6，未改变产品 / 测试期限。收藏的 8 个浏览器场景及补充失败路径沿用本日实际验收记录。
+- 双架构 ad-hoc app / DMG 的版本、架构、Mach-O / Info.plist 最低系统 12.0、签名、镜像、Applications 链接、只读挂载逐文件一致性及校验和通过。ARM app / DMG 为 15,327,275 / 4,875,085 字节，SHA-256 `2c4d9899bf8bb78ea7465b82914c69d9198e631299cac3f154b7806805f7d659`；Intel 为 16,446,731 / 5,388,256 字节，SHA-256 `0d63f17701b0c8d2a5f583b2ea80ca2a29601ce005bfc3150e552dab78771f20`。未完成 Developer ID 签名或公证。
+- 本机两架构窗口启动成功，Intel 使用 Rosetta；新 ARM Release 已打开，Intel 验收 GUI 随后正常退出。真实 Core PID 90306、3 份服务配置、运行 / 历史及 runner / 服务指纹与前快照一致，没有自动重启服务或退出旧 GUI。原生星标 / 菜单交互、Intel / macOS 12 真机未重新验收。
+- 构建前核对旧 Release bundle 无运行引用并暂存，保留仍在运行的 Debug / preview 应用。先登记未公开本地候选；GitHub 上传与公开下载校验后才开放新版链接。记录位于忽略目录 `.tmp/release-v0.1.5-20261117/`，不作为产品运行依赖。season-first 的 IPv4 / API 代理修复单独提交并推送为 `bb2021fe03a46d3b15d135dce0bd2456516fc757`；本机忽略的 `.env` 未纳入 Git。

@@ -831,6 +831,7 @@ export default function App() {
                   projectId={serviceProjectId}
                   back={() => navigate('all')}
                   editProject={setEditing}
+                  updateProject={update}
                   launchProject={launch}
                   inspectPort={(pid) => {
                     navigate('ports');
@@ -2208,7 +2209,7 @@ function SettingsPage({
         />
         <div>
           <strong>
-            DevNook <span>v0.1.4</span>
+            DevNook <span>v0.1.5</span>
           </strong>
           <p>Your Local Development Workspace</p>
           <p>{t('管理本地项目、服务和端口，支持终端命令与可选的 AI 助手接入。')}</p>

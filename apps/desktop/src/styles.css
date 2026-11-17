@@ -4019,7 +4019,10 @@ main.workbench-page {
 .service-row-actions {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  align-self: stretch;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 0.25rem;
 }
 .service-row .text-button {
   white-space: nowrap;

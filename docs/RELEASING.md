@@ -21,7 +21,7 @@ Apple Silicon 本机默认构建的固定输出：
 
 ```text
 target/release/bundle/macos/DevNook.app
-target/release/bundle/dmg/DevNook_0.1.4_aarch64.dmg
+target/release/bundle/dmg/DevNook_0.1.5_aarch64.dmg
 target/release/bundle/dmg/SHA256SUMS
 ```
 
@@ -38,14 +38,14 @@ APPLE_SIGNING_IDENTITY=- CI=true pnpm tauri bundle --target x86_64-apple-darwin 
 node scripts/record-release.mjs --target x86_64-apple-darwin
 ```
 
-固定输出为 `target/x86_64-apple-darwin/release/bundle/` 下的 `macos/DevNook.app`、`dmg/DevNook_0.1.4_x64.dmg` 与 `dmg/SHA256SUMS-x86_64`。Rust target / 清单架构使用 `x86_64`，DMG 文件名沿用 Tauri 的 `x64`。显式 `--target aarch64-apple-darwin` 同样使用独立 target 目录；不指定 target 则从本机架构和默认 `target/release/` 登记。
+固定输出为 `target/x86_64-apple-darwin/release/bundle/` 下的 `macos/DevNook.app`、`dmg/DevNook_0.1.5_x64.dmg` 与 `dmg/SHA256SUMS-x86_64`。Rust target / 清单架构使用 `x86_64`，DMG 文件名沿用 Tauri 的 `x64`。显式 `--target aarch64-apple-darwin` 同样使用独立 target 目录；不指定 target 则从本机架构和默认 `target/release/` 登记。
 
 ## 校验
 
 ```sh
 sh scripts/rust-local.sh cargo test --release --workspace --locked
 codesign --verify --strict --deep target/release/bundle/macos/DevNook.app
-hdiutil verify target/release/bundle/dmg/DevNook_0.1.4_aarch64.dmg
+hdiutil verify target/release/bundle/dmg/DevNook_0.1.5_aarch64.dmg
 cd target/release/bundle/dmg
 shasum -a 256 -c SHA256SUMS
 ```
@@ -62,9 +62,9 @@ Intel 测试使用 `cargo test --release --workspace --target x86_64-apple-darwi
 
 ## 发布到 GitHub Releases
 
-1. 确定版本号，并为对应源码创建版本标签，例如 `v0.1.4`。
+1. 确定版本号，并为对应源码创建版本标签，例如 `v0.1.5`。
 2. 完成该版本的构建、测试和签名状态核对。
-3. 上传相应架构的 DMG 与校验文件：Apple Silicon 使用 `DevNook_0.1.4_aarch64.dmg` / `SHA256SUMS`，Intel 使用 `DevNook_0.1.4_x64.dmg` / `SHA256SUMS-x86_64`。发布说明如实写明目标架构、系统要求和公证状态；同源版本追加新架构时保留既有资产，业务代码变化需使用新版本。
+3. 上传相应架构的 DMG 与校验文件：Apple Silicon 使用 `DevNook_0.1.5_aarch64.dmg` / `SHA256SUMS`，Intel 使用 `DevNook_0.1.5_x64.dmg` / `SHA256SUMS-x86_64`。发布说明如实写明目标架构、系统要求和公证状态；同源版本追加新架构时保留既有资产，业务代码变化需使用新版本。
 4. 从公开资产重新核对文件大小及 SHA-256；确认可下载后，再更新官网发布清单。
 
 `site/release.json` 包含共同 `version` 和逐架构 `builds`。公开下载字段应合并到对应架构的 build，例如 aarch64：
@@ -72,7 +72,7 @@ Intel 测试使用 `cargo test --release --workspace --target x86_64-apple-darwi
 ```json
 {
   "published": true,
-  "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.4/DevNook_0.1.4_aarch64.dmg"
+  "url": "https://github.com/Acorn2/devnook/releases/download/v0.1.5/DevNook_0.1.5_aarch64.dmg"
 }
 ```
 
