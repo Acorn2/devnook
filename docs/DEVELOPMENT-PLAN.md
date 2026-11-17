@@ -1378,3 +1378,12 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - 双架构 ad-hoc app / DMG 的版本、架构、Mach-O / Info.plist 最低系统 12.0、签名、镜像、Applications 链接、只读挂载逐文件一致性及校验和通过。ARM app / DMG 为 15,327,275 / 4,875,085 字节，SHA-256 `2c4d9899bf8bb78ea7465b82914c69d9198e631299cac3f154b7806805f7d659`；Intel 为 16,446,731 / 5,388,256 字节，SHA-256 `0d63f17701b0c8d2a5f583b2ea80ca2a29601ce005bfc3150e552dab78771f20`。未完成 Developer ID 签名或公证。
 - 本机两架构窗口启动成功，Intel 使用 Rosetta；新 ARM Release 已打开，Intel 验收 GUI 随后正常退出。真实 Core PID 90306、3 份服务配置、运行 / 历史及 runner / 服务指纹与前快照一致，没有自动重启服务或退出旧 GUI。原生星标 / 菜单交互、Intel / macOS 12 真机未重新验收。
 - 构建前核对旧 Release bundle 无运行引用并暂存，保留仍在运行的 Debug / preview 应用。先登记未公开本地候选；GitHub 上传与公开下载校验后才开放新版链接。记录位于忽略目录 `.tmp/release-v0.1.5-20261117/`，不作为产品运行依赖。season-first 的 IPv4 / API 代理修复单独提交并推送为 `bb2021fe03a46d3b15d135dce0bd2456516fc757`；本机忽略的 `.env` 未纳入 Git。
+
+
+## v0.1.5 公开安装包与下载清单（2026-11-17）
+
+- 源码提交 `37db11c44ea748da5dd43039d59278df4c12b673` 与注释标签 `v0.1.5` 已推送，GitHub CI [44105281045](https://github.com/Acorn2/devnook/actions/runs/44105281045) 全部成功。Release `448758967` 先上传草稿，核验四个资产大小 / GitHub digest 与本机一致，CI 成功后公开；随后从无凭证公开 URL 重新下载两个 DMG 和两个校验文件，体积、SHA-256 与本机构建一致，两份校验文件检查通过。GitHub latest 已核实为 v0.1.5。
+- 按实际公开结果同步 `site/release.json`、双语 README 和发行文档；本轮授权为提交代码与更新安装包，未触发独立的手动 Pages 部署。两份安装包仍为 macOS 12+ / ad-hoc / 未公证。
+- 旧五个 Release 的 20 个资产 ID、名称、体积、digest 与下载 URL 保持。新包验证通过后，再核对字面路径及 lsof 无引用，将两份旧 Release bundle 备份与已退出的旧 Debug app 移入系统废纸篓；只保留最新双架构固定包与仍供 Core / runner 使用的 preview 包，不清理 Rust 缓存、不终止用户进程。公开下载验证副本也在校验完成且无引用后移入废纸篓，固定输出的最新包保留。
+- Intel 首次 AX 读取早于窗口创建，验收脚本增加 15 秒内的只读等待与窗口缺失失败检查，随后窗口复核成功并正常退出该验收 GUI；产品启动逻辑未改。额外 JSON 格式检查在旧版 Tauri 配置同样报告既有紧凑排版，保留原格式，仅调整版本。项目规定的 `pnpm format:check` 通过。
+- 四份既有草稿的 SHA-256 保持，其记录及空间清理记录继续留在本地。真实 Core / runner、服务配置版本、运行 / 历史与内核身份保持前快照；未修改 MCP 客户端配置或创建授权。验证记录位于忽略目录 `.tmp/release-v0.1.5-20261117/`，不作为运行依赖。

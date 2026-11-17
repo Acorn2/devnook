@@ -147,3 +147,15 @@ Release workspace 在 ARM 与 x86_64 / Rosetta 上各 92 项通过、5 个既有
 | Intel Mac | 16,446,747 | 5,388,036 | `7e8a89b8c61de23458d5581199adf8597b4b9d6ec26d532260fac0013272bf6f` |
 
 旧版 v0.1.0–v0.1.3 的 Release 与资产保持原样。两架构各 97 项 Release workspace 测试通过，5 个 fixture 忽略，38 项前端测试通过；源码 CI [43828947721](https://github.com/Acorn2/devnook/actions/runs/43828947721) 成功。原生 WebView 交互、菜单栏、Intel 硬件及 macOS 12 真机本轮未重新验收。
+
+
+## v0.1.5 快速收藏发行
+
+本版源码标签为 `v0.1.5`，对应提交 `37db11c44ea748da5dd43039d59278df4c12b673`。服务列表项目星标、安装说明和验证范围见 [v0.1.5.md](releases/v0.1.5.md)。两个包均为 macOS 12+、ad-hoc 签名、未公证，四个公开资产已重新下载核验。
+
+| 架构 | 应用字节 | DMG 字节 | SHA-256 |
+| --- | ---: | ---: | --- |
+| Apple Silicon | 15,327,275 | 4,875,085 | `2c4d9899bf8bb78ea7465b82914c69d9198e631299cac3f154b7806805f7d659` |
+| Intel Mac | 16,446,731 | 5,388,256 | `0d63f17701b0c8d2a5f583b2ea80ca2a29601ce005bfc3150e552dab78771f20` |
+
+源码 CI [44105281045](https://github.com/Acorn2/devnook/actions/runs/44105281045) 成功。两架构各 97 项 Release workspace 测试通过、5 个既有 fixture 忽略，38 项前端测试通过；收藏通过 8 个隔离浏览器场景及保存 / 错误补测。双架构窗口启动在 Apple Silicon 主机检查，Intel 使用 Rosetta；原生星标 / 菜单交互、Intel / macOS 12 真机未重新验收。旧版 v0.1.0–v0.1.4 的 20 个资产保持原样。发布清单与 README 已登记实际公开链接；官网仍使用独立的手动 Pages 部署。
