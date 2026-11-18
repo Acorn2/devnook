@@ -21,6 +21,33 @@ pub struct WorkspaceGroup {
     pub updated_at: u64,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceFailure {
+    pub service_id: String,
+    pub stage: FailureStage,
+    pub log_run_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FailureStage {
+    Launch,
+    Readiness,
+    FinalCheck,
+}
+
+impl WorkspaceFailure {
+    fn new(id: &str, stage: FailureStage, instance: Option<&ServiceRun>) -> Self {
+        Self {
+            service_id: id.into(),
+            stage,
+            log_run_id: instance
+                .filter(|r| !r.log_path.is_empty() && r.worker_pid.is_some())
+                .map(|r| r.id.clone()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceRun {
     pub id: String,
     pub workspace_id: String,
@@ -31,6 +58,8 @@ pub struct WorkspaceRun {
     pub reused_service_ids: Vec<String>,
     pub cancel_requested: bool,
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<WorkspaceFailure>,
     pub started_at: u64,
     pub finished_at: Option<u64>,
 }
@@ -377,6 +406,7 @@ impl Core {
             reused_service_ids: vec![],
             cancel_requested: false,
             error: None,
+            failure: None,
             started_at: now(),
             finished_at: None,
         };
@@ -406,6 +436,7 @@ impl Core {
     }
     fn launch_workspace(self: Arc<Self>, mut run: WorkspaceRun) {
         let result = (|| -> Result<(), String> {
+            let mut ready_runs = Vec::with_capacity(run.plan.len());
             for view in run.plan.clone() {
                 if self.cancelled(&run)? {
                     return Err("用户已取消启动".into());
@@ -427,7 +458,14 @@ impl Core {
                         run.reused_service_ids.push(view.definition.id.clone());
                         active
                     } else {
-                        self.start_run(view.definition.clone(), Some(run.id.clone()))?
+                        self.start_run(view.definition.clone(), Some(run.id.clone()))
+                            .inspect_err(|_| {
+                                run.failure = Some(WorkspaceFailure::new(
+                                    &view.definition.id,
+                                    FailureStage::Launch,
+                                    None,
+                                ));
+                            })?
                     }
                 };
                 if current.workspace_run_id.as_deref() == Some(&run.id) {
@@ -445,6 +483,7 @@ impl Core {
                         &current.id,
                     )?);
                     if current.state == ServiceState::Ready {
+                        ready_runs.push(current);
                         break;
                     }
                     if !current.state.active()
@@ -453,6 +492,16 @@ impl Core {
                             ServiceState::Stopping | ServiceState::Unknown
                         )
                     {
+                        let stage = if current.pid.is_none() {
+                            FailureStage::Launch
+                        } else {
+                            FailureStage::Readiness
+                        };
+                        run.failure = Some(WorkspaceFailure::new(
+                            &view.definition.id,
+                            stage,
+                            Some(&current),
+                        ));
                         return Err(format!(
                             "{} 未就绪：{}",
                             view.definition.name,
@@ -462,18 +511,28 @@ impl Core {
                         ));
                     }
                     if Instant::now() > deadline {
+                        run.failure = Some(WorkspaceFailure::new(
+                            &view.definition.id,
+                            FailureStage::Readiness,
+                            Some(&current),
+                        ));
                         return Err(format!("{} 等待 READY 超时", view.definition.name));
                     }
                     std::thread::sleep(Duration::from_millis(100));
                 }
             }
             // Earlier services may have failed while a later dependency was starting.
-            for view in &run.plan {
+            for (view, expected) in run.plan.iter().zip(&ready_runs) {
                 if !self
                     .service_history(&view.definition.id)?
                     .first()
-                    .is_some_and(|r| r.state == ServiceState::Ready)
+                    .is_some_and(|r| r.id == expected.id && r.state == ServiceState::Ready)
                 {
+                    run.failure = Some(WorkspaceFailure::new(
+                        &view.definition.id,
+                        FailureStage::FinalCheck,
+                        Some(expected),
+                    ));
                     return Err(format!("{} 已失去就绪状态", view.definition.name));
                 }
             }
@@ -497,6 +556,19 @@ impl Core {
             // Recover ownership even if Core died after saving a service run but before journaling it.
             let owned: Vec<ServiceRun> = rows(&*self.db.lock().map_err(|_| "数据库锁异常")?,
                 "SELECT payload FROM service_runs WHERE json_extract(payload,'$.workspace_run_id')=?1 ORDER BY seq DESC", &run.id)?;
+            // start_run can fail after the owned instance was saved but before it was returned.
+            if let Some(failure) = run.failure.as_mut() {
+                if failure.stage == FailureStage::Launch && failure.log_run_id.is_none() {
+                    failure.log_run_id = owned
+                        .iter()
+                        .find(|r| {
+                            r.service_id == failure.service_id
+                                && r.worker_pid.is_some()
+                                && !r.log_path.is_empty()
+                        })
+                        .map(|r| r.id.clone());
+                }
+            }
             run.owned_run_ids = owned.iter().rev().map(|r| r.id.clone()).collect();
             self.persist_workspace(&mut run)?;
             let mut failures = Vec::new();
@@ -571,7 +643,12 @@ impl Core {
         interrupted: Vec<WorkspaceRun>,
     ) -> Result<(), String> {
         for mut run in interrupted {
-            run.error = Some("Core 上次中断，已停止继续启动并回滚本次新增实例".into());
+            let interrupted = "Core 上次中断，已停止继续启动并回滚本次新增实例";
+            run.error = Some(match run.error {
+                Some(reason) if !reason.contains(interrupted) => format!("{reason}；{interrupted}"),
+                Some(reason) => reason,
+                None => interrupted.into(),
+            });
             self.finish_workspace(run, false);
         }
         Ok(())

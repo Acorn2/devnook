@@ -253,7 +253,13 @@ export interface WorkspaceGroup {
   created_at: number;
   updated_at: number;
 }
+export interface WorkspaceFailure {
+  service_id: string;
+  stage: 'LAUNCH' | 'READINESS' | 'FINAL_CHECK';
+  log_run_id: string | null;
+}
 export interface WorkspaceRun {
+  failure?: WorkspaceFailure | null;
   id: string;
   workspace_id: string;
   revision: string;

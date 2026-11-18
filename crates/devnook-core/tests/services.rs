@@ -9,6 +9,7 @@ use devnook_core::{
     service_model::*,
     service_storage,
     supervisor::{self, RunnerLauncher},
+    workspace::FailureStage,
     Core,
 };
 use std::{
@@ -1350,6 +1351,13 @@ fn workspace_failure_rolls_back_new_runs_but_preserves_preexisting() {
     start_group(&h, &w.id);
     let run = group_state(&h, &w.id, "FAILED");
     assert!(run.error.unwrap().contains("fails"));
+    let failure = run.failure.unwrap();
+    assert_eq!(failure.service_id, c.id);
+    assert_eq!(failure.stage, FailureStage::Readiness);
+    assert_eq!(
+        failure.log_run_id.as_deref(),
+        Some(h.core.service_history(&c.id).unwrap()[0].id.as_str())
+    );
     h.state(&b.id, ServiceState::Stopped);
     h.state(&a.id, ServiceState::Ready);
     assert!(h.core.service_history(&c.id).unwrap()[0]
@@ -1357,6 +1365,113 @@ fn workspace_failure_rolls_back_new_runs_but_preserves_preexisting() {
         .is_some());
     h.stopped(&a.id);
 }
+#[test]
+fn workspace_failed_check_keeps_the_original_log_after_a_successful_retry() {
+    let h = Harness::new();
+    let mut db = h.definition("database", "worker");
+    db.readiness.kind = ReadinessKind::LogPhrase;
+    db.readiness.phrase = "MISSING_MARKER".into();
+    db.readiness.timeout_seconds = 1;
+    let mut db = h.save(db);
+    let w = group(&h, vec![db.id.clone()]);
+    start_group(&h, &w.id);
+    let failed = group_state(&h, &w.id, "FAILED");
+    let original = h.core.service_history(&db.id).unwrap()[0].id.clone();
+    db.readiness.phrase = "FIXTURE_READY".into();
+    h.save(db);
+    start_group(&h, &w.id);
+    let retry = group_state(&h, &w.id, "READY");
+    assert!(retry.failure.is_none());
+    assert!(!retry.owned_run_ids.contains(&original));
+    stop_group(&h, &w.id);
+    let saved = h
+        .core
+        .workspace_history(&w.id)
+        .unwrap()
+        .into_iter()
+        .find(|r| r.id == failed.id)
+        .unwrap();
+    let failure = saved.failure.as_ref().unwrap();
+    assert_eq!(failure.stage, FailureStage::Readiness);
+    assert_eq!(failure.log_run_id.as_ref(), Some(&original));
+    assert_eq!(saved.plan[0].definition.readiness.phrase, "MISSING_MARKER");
+    let logs = h.core.service_logs(&original, 500, "").unwrap();
+    assert!(logs.lines.iter().any(|l| l.contains("就绪检查超时")));
+    let mut legacy = serde_json::to_value(&saved).unwrap();
+    legacy.as_object_mut().unwrap().remove("failure");
+    assert!(
+        serde_json::from_value::<devnook_core::workspace::WorkspaceRun>(legacy)
+            .unwrap()
+            .failure
+            .is_none()
+    );
+}
+
+#[test]
+fn workspace_final_check_points_to_the_reused_run_that_lost_readiness() {
+    let h = Harness::new();
+    let http = |name: &str, unhealthy: &Path| {
+        let port = free_port();
+        let mut d = h.definition(name, "worker");
+        d.environment
+            .insert("FIXTURE_PORT".into(), port.to_string());
+        d.environment
+            .insert("HEALTH_BAD_FILE".into(), unhealthy.to_string_lossy().into());
+        d.readiness.kind = ReadinessKind::Http;
+        d.readiness.url = format!("http://127.0.0.1:{port}/health");
+        d.readiness.timeout_seconds = 12;
+        d
+    };
+    let api_unhealthy = h.temp.path().join("api-unhealthy");
+    let web_unhealthy = h.temp.path().join("web-unhealthy");
+    fs::write(&web_unhealthy, "503").unwrap();
+    let api = h.save(http("api", &api_unhealthy));
+    let original = h.start(&api);
+    h.state(&api.id, ServiceState::Ready);
+    let mut web = http("web", &web_unhealthy);
+    web.dependencies.push(api.id.clone());
+    let web = h.save(web);
+    let w = group(&h, vec![web.id.clone()]);
+    start_group(&h, &w.id);
+    wait(|| {
+        h.core
+            .service_history(&web.id)
+            .ok()?
+            .into_iter()
+            .next()
+            .filter(|r| r.state == ServiceState::Running)
+    });
+    fs::write(api_unhealthy, "503").unwrap();
+    h.state(&api.id, ServiceState::Running);
+    fs::remove_file(web_unhealthy).unwrap();
+    let failed = group_state(&h, &w.id, "FAILED");
+    let failure = failed.failure.unwrap();
+    assert_eq!(failure.service_id, api.id);
+    assert_eq!(failure.stage, FailureStage::FinalCheck);
+    assert_eq!(failure.log_run_id.as_ref(), Some(&original.id));
+    assert!(!failed.owned_run_ids.contains(&original.id));
+    h.state(&web.id, ServiceState::Stopped);
+    assert_eq!(h.state(&api.id, ServiceState::Running).id, original.id);
+    h.stopped(&api.id);
+}
+
+#[test]
+fn workspace_preflight_port_conflict_identifies_service_without_a_log() {
+    let h = Harness::new();
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let mut d = h.definition("api", "worker");
+    d.expected_ports = vec![listener.local_addr().unwrap().port()];
+    let d = h.save(d);
+    let w = group(&h, vec![d.id.clone()]);
+    start_group(&h, &w.id);
+    let failed = group_state(&h, &w.id, "FAILED");
+    let failure = failed.failure.unwrap();
+    assert_eq!(failure.service_id, d.id);
+    assert_eq!(failure.stage, FailureStage::Launch);
+    assert!(failure.log_run_id.is_none());
+    assert!(failed.error.unwrap().contains("占用"));
+}
+
 #[test]
 fn workspace_cancellation_reservations_cycles_and_stale_preview() {
     let h = Harness::new();
@@ -1416,7 +1531,7 @@ fn workspace_cancellation_reservations_cycles_and_stale_preview() {
     assert!(h.core.confirm_workspace_action(&p.token).is_err());
     let cancel = h.core.prepare_workspace_action(&w.id, "stop").unwrap();
     h.core.confirm_workspace_action(&cancel.token).unwrap();
-    group_state(&h, &w.id, "FAILED");
+    assert!(group_state(&h, &w.id, "FAILED").failure.is_none());
     h.state(&a.id, ServiceState::Stopped);
     h.state(&b.id, ServiceState::Stopped);
     assert!(h.core.archive_service(&a.id).is_err());

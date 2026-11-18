@@ -65,7 +65,7 @@ Open a project’s services, review suggestions derived from its manifests, or e
 - The global service list leads with project names; a project's own list leads with service names. Names, relative directories, and actual ports distinguish services in the same project, with matching details on the right.
 - Use the star beside a configured service, launch suggestion, or associated external service to favorite its project. Stars for the same project stay in sync with the project library.
 - Inspect runtime state, actual listeners, launch commands, and working directories. Expand process details when needed.
-- Read stdout / stderr by run, search log lines, and retain historical runs separately from configuration.
+- Read stdout / stderr by run. To investigate an error, filter by keyword, pause log updates, then choose “Copy displayed log lines” under “More log actions”.
 - Project icons, service markers, and actual ports share consistent project colors. Stack labels have their own colors; state keeps separate colors and text in both themes.
 - Started services and logs continue in the local backend after you close the app window.
 
@@ -103,6 +103,8 @@ Under **Services → Startup plans**, combine registered services across project
 ![Startup plan showing database, API, and frontend dependency order, readiness, and run ownership](site/assets/plans-dark-en.png)
 
 Review the full plan before starting. Existing services are reused. Failure, cancellation, or stopping a plan acts only on runs created by that attempt, retaining pre-existing runs and instances restarted manually afterward. Saving a plan stores configuration without executing it.
+
+After a startup failure, the plan and its history show which service failed and what was being checked. Choose “View logs for this run” to inspect that exact instance, even after a successful retry.
 
 ### Quick service access from the menu bar
 

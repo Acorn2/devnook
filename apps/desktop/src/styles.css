@@ -3339,6 +3339,16 @@ main.workbench-page {
   color: var(--text-secondary);
   font: 0.75rem var(--mono);
 }
+.workspace-failure {
+  display: grid;
+  justify-items: start;
+  gap: 0.4rem;
+  overflow-wrap: anywhere;
+}
+.workspace-log-body .service-log {
+  min-height: 8rem;
+  max-height: 48vh;
+}
 .workspace-history details {
   border-bottom: 1px solid var(--line);
   padding: 1rem 0;

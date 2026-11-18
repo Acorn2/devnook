@@ -7,7 +7,6 @@ import {
   Code2,
   Check,
   CircleAlert,
-  FileText,
   LoaderCircle,
   Pencil,
   Play,
@@ -22,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { call } from './api';
+import RunLogPanel from './RunLogPanel';
 import { Modal } from './components';
 import { projectColor } from './ColorLabels';
 import ExternalServiceConfirmation from './ExternalServiceConfirmation';
@@ -51,7 +51,6 @@ import {
   ProcessAssignment,
 } from './ServicePorts';
 import type {
-  LogPage,
   PortBinding,
   Project,
   ServiceDraft,
@@ -171,11 +170,10 @@ export default function ServicesPage({
   const [choosingHandoff, setChoosingHandoff] = useState('');
   const [handoff, setHandoff] = useState<ExternalServiceHandoffPreview | null>(null);
   const [history, setHistory] = useState<ServiceRun[]>([]);
+  const [clearLog, setClearLog] = useState<{ run: ServiceRun; invalidate: () => void } | null>(
+    null,
+  );
   const [runChoice, setRunChoice] = useState('latest');
-  const [log, setLog] = useState<LogPage | null>(null);
-  const [logQuery, setLogQuery] = useState('');
-  const [logError, setLogError] = useState('');
-  const [clearLog, setClearLog] = useState(false);
   const [busy, setBusy] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState('');
   const favoriteSaving = useRef(false);
@@ -395,8 +393,6 @@ export default function ServicesPage({
   }, [view, draft, visible, pending, externalView, external]);
   useEffect(() => {
     setRunChoice('latest');
-    setLog(null);
-    setLogQuery('');
     setHistory([]);
   }, [selected]);
   useEffect(() => {
@@ -423,39 +419,9 @@ export default function ServicesPage({
     };
   }, [selected, !!view, disabled, report]);
   const chosenRun =
-    runChoice === 'latest' ? view?.current_run : history.find((r) => r.id === runChoice);
-  useEffect(() => {
-    const id = chosenRun?.id;
-    if (!id || !chosenRun.log_path || disabled) {
-      setLog(null);
-      return;
-    }
-    let cancelled = false;
-    let inFlight = false;
-    setLog(null);
-    setLogError('');
-    const load = async () => {
-      if (inFlight) return;
-      inFlight = true;
-      try {
-        const page = await call<LogPage>('service_logs', { id, limit: 500, query: logQuery });
-        if (!cancelled) {
-          setLog(page);
-          setLogError('');
-        }
-      } catch (e) {
-        if (!cancelled) setLogError(message(e));
-      } finally {
-        inFlight = false;
-      }
-    };
-    void load();
-    const timer = setInterval(() => void load(), 1000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [chosenRun?.id, chosenRun?.log_path, logQuery, disabled]);
+    runChoice === 'latest'
+      ? view?.current_run
+      : history.find((r) => r.id === runChoice && r.service_id === selected);
   async function prepare(action: 'start' | 'restart' | 'force_stop', target = view) {
     if (!target) return;
     setBusy(true);
@@ -1252,12 +1218,16 @@ export default function ServicesPage({
                   report={report}
                 />
               </div>
-              <section className="service-log-section" aria-label={t('运行日志')}>
-                <div className="log-toolbar">
-                  <h3>
-                    <FileText size={16} />
-                    {t('运行日志')}
-                  </h3>
+              <RunLogPanel
+                key={selected}
+                runId={chosenRun?.log_path ? chosenRun.id : undefined}
+                managedRun={chosenRun}
+                onClear={(run, invalidate) => setClearLog({ run, invalidate })}
+                limitKb={view.definition.log_limit_kb}
+                disabled={disabled}
+                report={report}
+                notify={notify}
+                picker={
                   <Select
                     aria-label={t('选择运行记录')}
                     value={runChoice}
@@ -1270,81 +1240,8 @@ export default function ServicesPage({
                       })),
                     ]}
                   />
-                  <div className="search-field">
-                    <Search size={14} />
-                    <input
-                      aria-label={t('搜索服务日志')}
-                      placeholder={t('筛选日志关键字…')}
-                      value={logQuery}
-                      onChange={(e) => setLogQuery(e.target.value)}
-                    />
-                    {logQuery && (
-                      <button
-                        className="icon-button"
-                        aria-label={t('清空日志搜索')}
-                        onClick={() => setLogQuery('')}
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
-                  <ServiceOptions label={t('更多日志操作')}>
-                    <button
-                      className="text-button"
-                      disabled={!chosenRun?.log_path || active(chosenRun?.state)}
-                      onClick={() => setClearLog(true)}
-                    >
-                      <Trash2 size={13} />
-                      {t('清理本次日志…')}
-                    </button>
-                  </ServiceOptions>
-                </div>
-                <div
-                  className="service-log"
-                  role="log"
-                  aria-label={t('服务输出日志')}
-                  aria-live="off"
-                  tabIndex={0}
-                >
-                  {logError ? (
-                    <span className="log-error">{t(logError)}</span>
-                  ) : !chosenRun ? (
-                    <span className="log-empty">
-                      {t('启动后，在这里查看带时间戳的 stdout / stderr。')}
-                    </span>
-                  ) : !log?.lines.length ? (
-                    <span className="log-empty">
-                      {logQuery ? t('没有匹配的日志行。') : t('本次运行暂时没有可显示的输出。')}
-                    </span>
-                  ) : (
-                    log.lines.map((line, i) => (
-                      <div
-                        key={i}
-                        className={
-                          line.includes('[stderr]')
-                            ? 'stderr-line'
-                            : line.includes('[system]')
-                              ? 'system-line'
-                              : ''
-                        }
-                      >
-                        {line}
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="log-footer">
-                  <span>
-                    <span className="status-dot" />
-                    {t('每秒更新 · 最多显示最近 500 行')}
-                  </span>
-                  <span>
-                    {log?.truncated || chosenRun?.log_truncated
-                      ? t('日志已达到限制或仅显示尾部')
-                      : t('每次运行最多 ') + view.definition.log_limit_kb + ' KiB'}
-                  </span>
-                </div>
-              </section>
+                }
+              />
             </>
           )}
         </div>
@@ -1532,27 +1429,27 @@ export default function ServicesPage({
           </div>
         </Modal>
       )}
-      {clearLog && chosenRun && (
+      {clearLog && (
         <Modal
           title={t('清理本次运行日志？')}
           subtitle={t('只清理所选运行的日志文件，保留配置与运行记录。')}
-          close={() => setClearLog(false)}
+          close={() => setClearLog(null)}
         >
           <div className="modal-body">
-            <p>{date(chosenRun.started_at)}</p>
-            <code className="path-block">{chosenRun.log_path}</code>
+            <p>{date(clearLog.run.started_at)}</p>
+            <code className="path-block">{clearLog.run.log_path}</code>
           </div>
           <div className="modal-actions">
-            <button className="button secondary" onClick={() => setClearLog(false)}>
+            <button className="button secondary" onClick={() => setClearLog(null)}>
               {t('取消')}
             </button>
             <button
               className="button danger"
               onClick={async () => {
                 try {
-                  await call('clear_service_log', { id: chosenRun.id });
-                  setLog(null);
-                  setClearLog(false);
+                  await call('clear_service_log', { id: clearLog.run.id });
+                  clearLog.invalidate();
+                  setClearLog(null);
                   notify(t('本次历史日志已清理'));
                 } catch (e) {
                   report(e);

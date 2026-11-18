@@ -1,10 +1,27 @@
 import { t, dateLocale } from './i18n';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, Layers, Pencil, Play, Plus, Square, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Layers,
+  FileText,
+  Pencil,
+  Play,
+  Plus,
+  Square,
+  Trash2,
+} from 'lucide-react';
 import { call } from './api';
 import { Modal } from './components';
 import { ServiceBadge } from './ServicesPage';
-import type { ServiceView, WorkspaceGroup, WorkspacePreview, WorkspaceRun } from './types';
+import RunLogPanel from './RunLogPanel';
+import type {
+  ServiceDefinition,
+  ServiceView,
+  WorkspaceGroup,
+  WorkspacePreview,
+  WorkspaceRun,
+} from './types';
 
 const initial: WorkspaceGroup = {
   id: '',
@@ -26,6 +43,66 @@ const states: Record<string, string> = {
   ROLLBACK_FAILED: '停止未完成 · 需检查',
   STOPPED: '已停止',
 };
+type FailureLog = { runId: string; serviceName: string; limitKb: number; startedAt: number };
+
+function checkDescription(readiness: ServiceDefinition['readiness']) {
+  switch (readiness.kind) {
+    case 'PROCESS':
+      return t('进程存活 {{0}} 毫秒', [readiness.grace_ms]);
+    case 'PORT':
+      return t('进程组监听 TCP 端口 {{0}}', [readiness.port]);
+    case 'HTTP':
+      return t('HTTP 健康检查 {{0}}（2xx）', [readiness.url]);
+    case 'LOG_PHRASE':
+      return t('日志包含“{{0}}”', [readiness.phrase]);
+  }
+}
+
+function FailureDetails({
+  run,
+  openLog,
+}: {
+  run: WorkspaceRun;
+  openLog: (target: FailureLog) => void;
+}) {
+  const failure = run.failure;
+  const service = run.plan.find((s) => s.definition.id === failure?.service_id)?.definition;
+  if (!failure || !service) return run.error ? <p className="error-text">{t(run.error)}</p> : null;
+  const check =
+    failure.stage === 'LAUNCH'
+      ? t('启动服务')
+      : t(failure.stage === 'FINAL_CHECK' ? '最终复核 · {{0}}' : '等待就绪 · {{0}}', [
+          checkDescription(service.readiness),
+        ]);
+  const logId = failure.log_run_id;
+  return (
+    <div className="workspace-failure">
+      <strong>{t('失败服务：{{0}}', [service.name])}</strong>
+      <div>{check}</div>
+      {run.error && <div>{t(run.error)}</div>}
+      {logId ? (
+        <button
+          type="button"
+          className="button secondary small"
+          onClick={() =>
+            openLog({
+              runId: logId,
+              serviceName: service.name,
+              limitKb: service.log_limit_kb,
+              startedAt: run.started_at,
+            })
+          }
+        >
+          <FileText size={14} />
+          {t('查看这次运行的日志')}
+        </button>
+      ) : (
+        <span className="muted">{t('这次启动没有可关联的日志。')}</span>
+      )}
+    </div>
+  );
+}
+
 export default function WorkspacesPage({
   disabled,
   report,
@@ -38,7 +115,8 @@ export default function WorkspacesPage({
   const [groups, setGroups] = useState<WorkspaceGroup[]>([]);
   const [services, setServices] = useState<ServiceView[]>([]);
   const [selected, setSelected] = useState('');
-  const [history, setHistory] = useState<WorkspaceRun[]>([]);
+  const [logTarget, setLogTarget] = useState<FailureLog | null>(null);
+  const [runs, setHistory] = useState<WorkspaceRun[]>([]);
   const [editing, setEditing] = useState<WorkspaceGroup | null>(null);
   const [preview, setPreview] = useState<WorkspacePreview | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -77,6 +155,7 @@ export default function WorkspacesPage({
     };
   }, [refresh, report]);
   const group = groups.find((g) => g.id === selected);
+  const history = runs.filter((run) => run.workspace_id === selected);
   const current = history[0];
   const active =
     current && (busyState(current.state) || ['READY', 'ROLLBACK_FAILED'].includes(current.state));
@@ -184,7 +263,7 @@ export default function WorkspacesPage({
               </div>
               {current?.error && (
                 <div className="service-warning" role="alert">
-                  {t(current.error)}
+                  <FailureDetails run={current} openLog={setLogTarget} />
                 </div>
               )}
               {current?.cancel_requested && busyState(current.state) && (
@@ -240,7 +319,7 @@ export default function WorkspacesPage({
                         {r.owned_run_ids.length} {t('个运行，复用')}
                         {r.reused_service_ids.length} {t('个服务。')}
                       </p>
-                      {r.error && <p className="error-text">{t(r.error)}</p>}
+                      <FailureDetails run={r} openLog={setLogTarget} />
                       <code>{r.id}</code>
                       <ul>
                         {r.plan.map((s) => (
@@ -261,6 +340,27 @@ export default function WorkspacesPage({
             </article>
           )}
         </div>
+      )}
+      {logTarget && (
+        <Modal
+          wide
+          title={t('{{0}} · 运行日志', [logTarget.serviceName])}
+          subtitle={t('方案启动于 {{0}}', [
+            new Date(logTarget.startedAt * 1000).toLocaleString(dateLocale()),
+          ])}
+          close={() => setLogTarget(null)}
+        >
+          <div className="modal-body workspace-log-body">
+            <RunLogPanel
+              key={logTarget.runId}
+              runId={logTarget.runId}
+              limitKb={logTarget.limitKb}
+              disabled={disabled}
+              notify={notify}
+              report={report}
+            />
+          </div>
+        </Modal>
       )}
       {editing && (
         <WorkspaceEditor
