@@ -1407,3 +1407,11 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - 通过 pnpm tauri build --debug --no-bundle 和 APPLE_SIGNING_IDENTITY=- pnpm tauri bundle --debug --bundles app 重建固定路径 target/debug/bundle/macos/DevNook.app。arm64 本地 Debug 包通过 codesign --verify --strict --deep 与 plutil -lint。
 - 使用独立 DEVNOOK_DATA_DIR 打开原生窗口，经 UDS 核实同包启动独立 Core。导入隔离演示工程并通过既有预览、确认流程运行“演示 · 启动失败与日志”。演示 API 等待 DEMO_API_READY 超时，依赖它的演示前端未启动。读取对应实例获得 5 行日志，包含初始化等待和就绪超时。演示脚本首次使用扫描候选 ID 保存服务被拒绝，改用已导入项目 ID 后通过。
 - macOS 辅助功能实读新版单窗口并切到启动方案，确认页面显示演示 API、就绪关键字和“查看这次运行的日志”按钮，页面留在失败提示处供用户点击。原有 Core 和 runner 的 PID / 启动时间仍匹配。产物为本机测试包，未重新安装或发布。
+
+## v0.1.6 日志与启动失败定位发行（2026-11-18）
+
+- 按用户授权提交并推送日志暂停、复制与启动失败定位，源码标签为 v0.1.6，提交为 c25937c。版本同步到 Cargo、前端、Tauri 与关于页，更新双语版本说明和使用指南。旧草稿的 SHA-256 核对通过，相关本地记录留在工作区。
+- 首轮 CI 检测到官网清单与源码版本不一致。主分支提交 5860f96 将官网清单同步为待发布版本，[CI 44270550292](https://github.com/Acorn2/devnook/actions/runs/44270550292) 随后全部通过。发布资产仍对应原源码标签。
+- 本地两架构的 Release workspace 各有 100 项测试通过、5 个既有 fixture 忽略，前端 38 项通过。双架构 DMG 验证签名、版本、架构、macOS 12.0 最低要求、镜像完整性、Applications 入口和只读挂载内容。两套原生窗口在 Apple Silicon 主机上启动通过，Intel 使用 Rosetta。用户确认隔离 Debug 桌面演示的失败提示和日志入口正常。
+- GitHub Release 449725703 已公开并设为最新版。重新下载四个公开文件，核对大小、GitHub digest 和两份 SHA-256 校验文件。旧六个 Release 的资产保持。双语 README 和官网源码已同步公开链接，官网构建通过 8 项发布清单测试和 72 个本地资源检查。Pages 部署独立执行。
+- 两份已确认无运行引用的旧 Release bundle 和临时公开下载验证副本已移入系统废纸篓。保留新版固定输出和仍被使用的 Debug / preview 包，原 Core 和 runner 对应原来的启动时间。验收记录位于忽略目录 .tmp/release-v0.1.6-20261118。安装包为 ad-hoc 签名，尚未完成公证。
