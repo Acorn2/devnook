@@ -5,7 +5,6 @@ import {
   ArrowRight,
   CheckCheck,
   ChevronDown,
-  Database,
   Folder,
   FolderSearch,
   LoaderCircle,
@@ -53,6 +52,36 @@ const termsOf = (value: string) => value.trim().toLocaleLowerCase().split(/\s+/)
 const matchesProject = (candidate: Candidate, terms: string[]) =>
   matches(candidate, terms) || components(candidate).some((component) => matches(component, terms));
 
+const importStatusFilters = [
+  { value: 'unimported', label: '未导入' },
+  { value: 'imported', label: '已导入' },
+  { value: 'all', label: '全部' },
+] as const;
+type ImportStatusFilter = (typeof importStatusFilters)[number]['value'];
+
+const recentScanRootsKey = 'devnook.scan.recentRoots';
+const recentScanRootsLimit = 5;
+
+function readRecentScanRoots(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(recentScanRootsKey) || 'null');
+    if (Array.isArray(saved)) {
+      const roots = saved.filter(
+        (path): path is string => typeof path === 'string' && !!path.trim(),
+      );
+      if (roots.length) return [...new Set(roots)].slice(0, recentScanRootsLimit);
+    }
+  } catch {
+    // An unreadable history can still fall back to the previous preference.
+  }
+  try {
+    const lastRoot = localStorage.getItem('devnook.scan.lastRoot');
+    return lastRoot?.trim() ? [lastRoot] : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ScanModal({
   settings,
   close,
@@ -64,24 +93,40 @@ export default function ScanModal({
   imported: (projects: Project[]) => void;
   report: (error: unknown) => void;
 }) {
-  const [root, setRoot] = useState('');
+  const [recentScanRoots, setRecentScanRoots] = useState(readRecentScanRoots);
+  const [root, setRoot] = useState(recentScanRoots[0] ?? '');
+  const [storageError, setStorageError] = useState(false);
   const [depth, setDepth] = useState(settings.scan_depth);
   const [limited, setLimited] = useState(false);
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ImportStatusFilter>('unimported');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState('');
-  const idRef = useRef<string | null>(null);
+  const scanRef = useRef<{ id: string; root: string } | null>(null);
   const closingRef = useRef(false);
   const initialized = useRef<string | null>(null);
   const allRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const scanning = progress?.status === 'scanning';
   const completed = progress?.status === 'completed';
+  const isLastScanRoot = root === recentScanRoots[0];
+  const isRecentScanRoot = recentScanRoots.includes(root);
   const candidates = completed ? progress.candidates : [];
   const terms = termsOf(query);
-  const visible = candidates.filter((candidate) => matchesProject(candidate, terms));
+  const importedCount = candidates.filter((candidate) => candidate.imported).length;
+  const counts = {
+    unimported: candidates.length - importedCount,
+    imported: importedCount,
+    all: candidates.length,
+  };
+  const visible = candidates.filter(
+    (candidate) =>
+      (statusFilter === 'all' || candidate.imported === (statusFilter === 'imported')) &&
+      matchesProject(candidate, terms),
+  );
   const visibleIds = new Set(visible.map((candidate) => candidate.id));
   const eligible = visible.filter((candidate) => !candidate.imported);
   const selectedVisible = eligible.filter((candidate) => selected.has(candidate.id)).length;
@@ -91,6 +136,14 @@ export default function ScanModal({
   const updating = candidates.filter(
     (candidate) => candidate.imported && selected.has(candidate.id),
   ).length;
+  const importing = selected.size - updating;
+  const selectionSummary = [
+    importing ? t('导入 {{0}} 项', [importing]) : '',
+    updating ? t('更新 {{0}} 项', [updating]) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const submitLabel = updating ? (importing ? t('导入并更新') : t('更新档案')) : t('导入项目');
   const serviceCount = candidates.reduce(
     (count, candidate) =>
       count + components(candidate).filter((component) => component.runnable).length,
@@ -102,14 +155,18 @@ export default function ScanModal({
       allRef.current.indeterminate = selectedVisible > 0 && selectedVisible < eligible.length;
   }, [selectedVisible, eligible.length, completed]);
   useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, [statusFilter, query]);
+  useEffect(() => {
     closingRef.current = false;
     return () => {
       closingRef.current = true;
-      if (idRef.current) void call('scan_cancel', { id: idRef.current }).catch(() => {});
+      if (scanRef.current) void call('scan_cancel', { id: scanRef.current.id }).catch(() => {});
     };
   }, []);
   useEffect(() => {
     if (!progress || progress.status !== 'scanning') return;
+    const scan = scanRef.current;
     let cancelled = false;
     let inFlight = false;
     const timer = setInterval(() => {
@@ -121,6 +178,18 @@ export default function ScanModal({
           setProgress(result);
           if (result.status === 'completed' && initialized.current !== result.id) {
             initialized.current = result.id;
+            if (scan?.id === result.id) {
+              const roots = [
+                ...new Set([scan.root, ...readRecentScanRoots(), ...recentScanRoots]),
+              ].slice(0, recentScanRootsLimit);
+              setRecentScanRoots(roots);
+              try {
+                localStorage.setItem(recentScanRootsKey, JSON.stringify(roots));
+                setStorageError(false);
+              } catch {
+                setStorageError(true);
+              }
+            }
             setSelected(
               new Set(
                 result.candidates
@@ -147,13 +216,14 @@ export default function ScanModal({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [progress?.id, progress?.status]);
+  }, [progress?.id, progress?.status, recentScanRoots]);
 
   function changeRoot(value: string) {
     setRoot(value);
+    setLocalError('');
     if (progress) {
-      if (idRef.current) void call('scan_cancel', { id: idRef.current }).catch(() => {});
-      idRef.current = null;
+      if (scanRef.current) void call('scan_cancel', { id: scanRef.current.id }).catch(() => {});
+      scanRef.current = null;
       setProgress(null);
       setSelected(new Set());
       setQuery('');
@@ -176,10 +246,11 @@ export default function ScanModal({
     setProgress(null);
     setSelected(new Set());
     setQuery('');
+    setStatusFilter('unimported');
     setExpanded(new Set());
     try {
       const id = await call<string>('scan_start', { root, depth: limited ? depth : 0 });
-      idRef.current = id;
+      scanRef.current = { id, root };
       if (closingRef.current) {
         await call('scan_cancel', { id });
         return;
@@ -208,6 +279,14 @@ export default function ScanModal({
       return next;
     });
   }
+  function emptyResultsMessage() {
+    if (!counts[statusFilter]) {
+      if (statusFilter === 'unimported') return t('本次扫描未发现未导入项目。');
+      if (statusFilter === 'imported') return t('本次扫描未发现已导入项目。');
+      return t('未识别到项目，可选择更具体的目录或检查高级设置。');
+    }
+    return t('没有匹配的项目或组件，试试其他关键词。');
+  }
   return (
     <Modal
       title={t('发现本地项目')}
@@ -217,7 +296,7 @@ export default function ScanModal({
       close={close}
     >
       <div className="modal-body scan-config">
-        <label htmlFor="scan-root">{t('扫描目录')}</label>
+        <label htmlFor="scan-root">{isLastScanRoot ? t('上次扫描目录') : t('扫描目录')}</label>
         <div className="directory-input">
           <Folder size={17} />
           <input
@@ -227,6 +306,16 @@ export default function ScanModal({
             onChange={(event) => changeRoot(event.target.value)}
             disabled={scanning || busy}
           />
+          {recentScanRoots.length > 0 && (
+            <Select
+              aria-label={t('最近扫描')}
+              displayLabel={t('最近扫描')}
+              value={root}
+              options={recentScanRoots.map((path) => ({ value: path, label: path }))}
+              disabled={scanning || busy}
+              onValueChange={changeRoot}
+            />
+          )}
           <button
             className="button secondary small"
             disabled={scanning || busy}
@@ -246,6 +335,11 @@ export default function ScanModal({
             {t('选择目录')}
           </button>
         </div>
+        {storageError && (
+          <p className="field-hint" role="status">
+            {t('本次扫描结果可用，但无法记住扫描目录。')}
+          </p>
+        )}
         <div className="scan-mode">
           <span>
             {limited
@@ -339,6 +433,20 @@ export default function ScanModal({
             </>
           )}
           <div className="scan-search">
+            {completed && (
+              <div className="scan-status-filter" role="group" aria-label={t('按导入状态筛选')}>
+                {importStatusFilters.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={statusFilter === value}
+                    onClick={() => setStatusFilter(value)}
+                  >
+                    {t(label)} <span>{counts[value]}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="search-field">
               <Search size={16} />
               <input
@@ -358,24 +466,26 @@ export default function ScanModal({
                 </button>
               )}
             </div>
-            <span>
-              {visible.length} / {candidates.length} {t('个项目')}
-            </span>
-            <button
-              className="text-button"
-              disabled={!completed || !selected.size || busy}
-              onClick={() => setSelected(new Set())}
-            >
-              {t('清空选择')}
-            </button>
+            {completed && terms.length > 0 && (
+              <span role="status">{t('匹配 {{0}} 项', [visible.length])}</span>
+            )}
+            {completed && (
+              <button
+                className="text-button"
+                disabled={!selected.size || busy}
+                onClick={() => setSelected(new Set())}
+              >
+                {t('清空选择')}
+              </button>
+            )}
           </div>
-          {completed && (
+          {eligible.length > 0 && (
             <label className="select-all">
               <input
                 ref={allRef}
                 type="checkbox"
-                disabled={!eligible.length || busy}
-                checked={eligible.length > 0 && selectedVisible === eligible.length}
+                disabled={busy}
+                checked={selectedVisible === eligible.length}
                 onChange={(event) => {
                   const checked = event.target.checked;
                   setSelected((previous) => {
@@ -389,10 +499,15 @@ export default function ScanModal({
                 }}
               />
               {t('选择当前结果中的未导入项目')}
-              <span>{t('独立项目按需勾选；已有档案可勾选更新线索')}</span>
             </label>
           )}
-          <div className="candidate-list" role="region" aria-label={t('扫描项目结果')} tabIndex={0}>
+          <div
+            ref={listRef}
+            className="candidate-list"
+            role="region"
+            aria-label={t('扫描项目结果')}
+            tabIndex={0}
+          >
             {visible.map((candidate) => {
               const items = components(candidate);
               const shown = terms.length ? items.filter((item) => matches(item, terms)) : items;
@@ -415,9 +530,13 @@ export default function ScanModal({
                     <div>
                       <strong>
                         <label htmlFor={`candidate-${candidate.id}`}>{candidate.name}</label>
-                        {candidate.imported && (
-                          <span className="candidate-state">{t('已导入 · 可更新')}</span>
-                        )}
+                        <span
+                          className={
+                            candidate.imported ? 'candidate-state' : 'candidate-state unimported'
+                          }
+                        >
+                          {t(candidate.imported ? '已导入' : '未导入')}
+                        </span>
                         {candidate.parent_path && (
                           <span className="candidate-state">{t('独立嵌套项目')}</span>
                         )}
@@ -499,38 +618,31 @@ export default function ScanModal({
                 </article>
               );
             })}
-            {completed && !visible.length && (
-              <p className="no-results">
-                {query
-                  ? t('没有匹配的项目或组件，试试其他关键词。')
-                  : t('未识别到项目，可选择更具体的目录或检查高级设置。')}
-              </p>
-            )}
+            {completed && !visible.length && <p className="no-results">{emptyResultsMessage()}</p>}
             {scanning && (
               <p className="no-results">{t('正在收集清单与仓库信息，完成后可搜索并预览分组。')}</p>
             )}
           </div>
           {progress.warnings.length > 0 && (
-            <div className="scan-warnings" role="status">
-              {progress.warnings.map((warning) => (
-                <p className="scan-warning" key={t(warning)}>
-                  {t(warning)}
-                </p>
-              ))}
-            </div>
+            <details className="scan-warnings" key={progress.id}>
+              <summary>{t('扫描提示（{{0}}）', [progress.warnings.length])}</summary>
+              <div className="scan-warning-list">
+                {progress.warnings.map((warning) => (
+                  <p className="scan-warning" key={warning}>
+                    {t(warning)}
+                  </p>
+                ))}
+              </div>
+            </details>
           )}
         </div>
       )}
       <div className="modal-actions">
-        <span className="modal-hint">
-          <Database size={13} />
+        <span className="modal-hint" role="status">
           {completed
-            ? t('已选 {{0}} 个项目{{1}}{{2}}', [
-                selected.size,
-                updating ? t('，含 {{0}} 个档案更新', [updating]) : '',
-                hiddenSelected ? t('（{{0}} 个未显示）', [hiddenSelected]) : '',
-              ])
+            ? selectionSummary || t('尚未选择项目')
             : t('服务候选仅作配置线索，不自动创建或启动')}
+          {hiddenSelected > 0 && t('（{{0}} 个未显示）', [hiddenSelected])}
         </span>
         <button className="button secondary" disabled={busy} onClick={close}>
           {t('取消')}
@@ -556,7 +668,7 @@ export default function ScanModal({
               onClick={() => void start()}
             >
               {busy && <LoaderCircle size={15} className="spin" />}
-              {progress ? t('重新扫描') : t('开始扫描')}
+              {progress || isRecentScanRoot ? t('重新扫描') : t('开始扫描')}
               <ArrowRight size={15} />
             </button>
             {completed && (
@@ -579,7 +691,7 @@ export default function ScanModal({
                   }
                 }}
               >
-                {updating ? t('导入 / 更新') : t('导入')} {selected.size} {t('个项目')}
+                {submitLabel}
               </button>
             )}
           </>

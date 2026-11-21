@@ -29,12 +29,12 @@ pnpm site:preview
 | `site/release.mjs`               | 双架构发布清单校验、候选合并与校验文件名     |
 | `site/style.css`                 | 响应式布局与浅暗主题                         |
 | `site/main.js` / `site/theme.js` | 导航、主题、截图与复制交互                   |
-| `site/assets/`                   | 本项目 Logo 和使用演示数据的应用截图         |
+| `site/assets/`                   | 本项目 Logo、演示截图和 `demos/` 短片            |
 | `site/release.json`              | 实际版本、架构、体积、校验和、签名和公开状态 |
 | `scripts/build-site.mjs`         | 生成两种语言的 HTML、静态资源与 sitemap      |
 | `.github/workflows/pages.yml`    | 静态构建、检查及 GitHub Pages 部署           |
 
-截图来自本项目的隔离界面验收，不包含用户真实项目或进程。官网展示只读 MCP 配置样例，不连接本机 Core、扫描目录或执行服务命令。主题偏好独立保存在 `devnook.site.appearance`；不加载第三方字体或统计脚本。
+截图和实操短片均使用隔离演示数据，不包含用户真实项目或进程。短片和封面随静态站点构建，英文页额外提供 WebVTT 字幕；发布时请一并检查两种语言的 `#demos` 和视频资源。官网展示只读 MCP 配置样例，不连接本机 Core、扫描目录或执行服务命令。主题偏好独立保存在 `devnook.site.appearance`；不加载第三方字体或统计脚本。
 
 ## GitHub Pages 设置
 

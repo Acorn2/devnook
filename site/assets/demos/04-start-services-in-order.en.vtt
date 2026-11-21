@@ -1,0 +1,10 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:03.853 line:77%
+Running several services? Save the sequence as a startup plan.
+
+00:00:03.853 --> 00:00:11.342 line:77%
+Review the order before confirming: Notes Web waits for Notes API to be ready.
+
+00:00:11.342 --> 00:00:16.598 line:77%
+Both services are ready. Reuse the same plan next time.

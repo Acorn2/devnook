@@ -3,6 +3,9 @@ use super::{plain_file, read_manifest};
 use quick_xml::{events::Event, Reader};
 use std::path::Path;
 
+mod python;
+pub(crate) use python::uvicorn_entrypoint;
+
 #[derive(Default)]
 pub(super) struct Hints {
     pub purpose: super::purpose::Purpose,
@@ -61,13 +64,43 @@ enum Token {
     String(String),
     Symbol(char),
     Line,
+    Indent(usize),
 }
 fn tokens(text: &str) -> Vec<Token> {
+    lex(text, false)
+}
+fn lex(text: &str, python: bool) -> Vec<Token> {
     let mut chars = text.chars().peekable();
     let mut result = Vec::new();
+    let mut line_start = true;
+    let mut depth = 0usize;
     while let Some(c) = chars.next() {
+        let mut c = c;
+        if python && line_start {
+            let mut indent = 0;
+            while matches!(c, ' ' | '\t') {
+                indent = if c == ' ' {
+                    indent + 1
+                } else {
+                    (indent / 8 + 1) * 8
+                };
+                let Some(next) = chars.next() else {
+                    return result;
+                };
+                c = next;
+            }
+            if depth == 0 {
+                result.push(Token::Indent(indent));
+            }
+            line_start = false;
+        }
         match c {
-            '\n' => result.push(Token::Line),
+            '\n' => {
+                line_start = true;
+                if depth == 0 {
+                    result.push(Token::Line);
+                }
+            }
             c if c.is_whitespace() => {}
             '#' => {
                 for c in chars.by_ref() {
@@ -75,9 +108,12 @@ fn tokens(text: &str) -> Vec<Token> {
                         break;
                     }
                 }
-                result.push(Token::Line);
+                line_start = true;
+                if depth == 0 {
+                    result.push(Token::Line);
+                }
             }
-            '/' if chars.peek() == Some(&'/') => {
+            '/' if !python && chars.peek() == Some(&'/') => {
                 chars.next();
                 for c in chars.by_ref() {
                     if c == '\n' {
@@ -86,7 +122,7 @@ fn tokens(text: &str) -> Vec<Token> {
                 }
                 result.push(Token::Line);
             }
-            '/' if chars.peek() == Some(&'*') => {
+            '/' if !python && chars.peek() == Some(&'*') => {
                 chars.next();
                 let mut previous = ' ';
                 for c in chars.by_ref() {
@@ -97,6 +133,21 @@ fn tokens(text: &str) -> Vec<Token> {
                 }
             }
             '\'' | '"' | '`' => {
+                if python && chars.clone().take(2).eq([c, c]) {
+                    chars.next();
+                    chars.next();
+                    while let Some(next) = chars.next() {
+                        if next == '\\' {
+                            chars.next();
+                        } else if next == c && chars.clone().take(2).eq([c, c]) {
+                            chars.next();
+                            chars.next();
+                            break;
+                        }
+                    }
+                    result.push(Token::Symbol('?'));
+                    continue;
+                }
                 let mut value = String::new();
                 let mut closed = false;
                 while let Some(next) = chars.next() {
@@ -116,11 +167,23 @@ fn tokens(text: &str) -> Vec<Token> {
                     result.push(Token::Symbol('?'));
                 }
             }
+            '(' | ')' | '[' | ']' | '{' | '}' if python => {
+                if matches!(c, '(' | '[' | '{') {
+                    depth += 1;
+                } else {
+                    depth = depth.saturating_sub(1);
+                }
+                result.push(Token::Symbol(c));
+            }
+            ':' if python => result.push(Token::Symbol(c)),
             '(' | ')' | '[' | ']' | '{' | '}' | ',' | '=' | ';' => result.push(Token::Symbol(c)),
             _ => {
                 let mut word = c.to_string();
                 while let Some(&next) = chars.peek() {
-                    if next.is_whitespace() || "()[]{},=;\"'`#".contains(next) {
+                    if next.is_whitespace()
+                        || "()[]{},=;\"'`#".contains(next)
+                        || (python && next == ':')
+                    {
                         break;
                     }
                     word.push(chars.next().unwrap());

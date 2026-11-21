@@ -13,6 +13,7 @@
 <p align="center">
   <a href="https://acorn2.github.io/devnook/en/">Website</a> ·
   <a href="#features">What it does</a> ·
+  <a href="#quick-demos">Quick demos</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#cli-and-ai-assistants">CLI / MCP</a> ·
   <a href="#documentation">Documentation</a> ·
@@ -59,8 +60,9 @@ Review project boundaries and components before importing. Select a specific pat
 
 ### Save launch commands and keep runs with their logs
 
-Open a project’s services, review suggestions derived from its manifests, or enter a command. Save the configuration, confirm execution, and reuse it next time.
+Open a project’s services, review suggestions derived from its manifests and supported entry points, or enter a command. Save the configuration, confirm execution, and reuse it next time.
 
+- For supported FastAPI layouts, DevNook suggests an explicit Uvicorn launch command. It fills in the port and TCP readiness check if the port is known; database and service dependencies remain yours to configure.
 - Start, stop, and restart registered services. Check port conflicts and dependency state before startup.
 - The global service list leads with project names; a project's own list leads with service names. Names, relative directories, and actual ports distinguish services in the same project, with matching details on the right.
 - Use the star beside a configured service, launch suggestion, or associated external service to favorite its project. Stars for the same project stay in sync with the project library.
@@ -128,6 +130,12 @@ DevNook recognizes manifests and component metadata for JavaScript / TypeScript,
 Default scans follow project features and module declarations. For nonstandard layouts, select a specific directory or enable a deeper scan. Dynamic configurations and custom launchers that static rules cannot resolve need manual input. See [scanner coverage](docs/scanner-features-plan.md) and [service eligibility](docs/service-eligibility-plan.md) for details; these guides are in Chinese.
 
 </details>
+
+## Quick demos
+
+Scan and import a project, start a service and read its logs, trace an occupied port, or start services in dependency order. Each clip is under 20 seconds and shows the macOS app with demo data and English captions available on the website.
+
+<a href="https://acorn2.github.io/devnook/en/#demos"><img src="site/assets/demos/01-scan-and-import.jpg" width="540" alt="Watch the four DevNook demos" /></a>
 
 ## Quick start
 

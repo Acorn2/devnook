@@ -92,6 +92,7 @@ export interface BrowserAddress {
   url: string;
   pid: number;
   fingerprint: string;
+  access_url?: string;
   web_ui?: boolean | null;
 }
 export interface BrowserShortcut {
@@ -228,6 +229,7 @@ export interface ServiceDraft {
   definition: ServiceDefinition;
   command: string;
   source: string;
+  independent_entrypoint?: boolean;
 }
 export interface ServiceActionPreview {
   token: string;

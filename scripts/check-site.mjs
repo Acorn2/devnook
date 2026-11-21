@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve, join, dirname, sep } from 'node:path';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { demos } from '../site/content.mjs';
 
 const root = fileURLToPath(new URL('../dist/site', import.meta.url));
 for (const file of ['main.js', 'theme.js']) {
@@ -16,7 +17,22 @@ for (const relative of ['index.html', 'en/index.html']) {
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, 'Duplicate element IDs');
   assert.equal((html.match(/<h1\b/g) || []).length, 1);
-  for (const [, attribute, value] of html.matchAll(/\s(href|src)="([^"]+)"/g)) {
+  const demoCount = Object.keys(demos).length;
+  assert.equal((html.match(/<video\b[^>]*\bpreload="none"/g) || []).length, demoCount);
+  assert.doesNotMatch(html, /<video\b[^>]*\bautoplay\b/);
+  assert.equal(
+    (html.match(/<track\b[^>]*\bsrclang="en"/g) || []).length,
+    relative.startsWith('en') ? demoCount : 0,
+  );
+  for (const id of Object.keys(demos)) {
+    const story = html.match(
+      new RegExp(`<article class="feature-story" id="${id}"[^>]*>(.*?)</article>`, 's'),
+    )?.[1];
+    assert.ok(story, `Missing feature: ${id}`);
+    assert.doesNotMatch(story, /<(img|details)\b/, `Unexpected screenshot or accordion: ${id}`);
+    assert.match(story, /<video\b[^>]*\bcontrols\b/);
+  }
+  for (const [, attribute, value] of html.matchAll(/\s(href|src|poster)="([^"]+)"/g)) {
     if (/^https?:/.test(value)) continue;
     if (value.startsWith('#')) {
       assert.ok(ids.includes(value.slice(1)), `Missing anchor: ${value}`);

@@ -40,6 +40,8 @@ import {
   serviceStateLabel,
   externalServiceChoices,
   externalPortConflict,
+  groupServiceDrafts,
+  pendingServiceDrafts,
 } from './ServicePresentation';
 import Select from './Select';
 import ServiceAiGuide from './ServiceAiGuide';
@@ -355,18 +357,13 @@ export default function ServicesPage({
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
-  const pending = drafts.filter(
-    (draft) =>
-      !services.some(
-        (v) =>
-          v.definition.project_id === projectId &&
-          v.definition.working_directory === draft.definition.working_directory,
-      ) &&
-      [draft.definition.name, draft.command, draft.definition.working_directory]
-        .join(' ')
-        .toLowerCase()
-        .includes(query.toLowerCase()),
+  const pending = pendingServiceDrafts(drafts, services, query);
+  const { primaryDrafts, otherDrafts } = groupServiceDrafts(
+    pending,
+    drafts,
+    project?.canonical_path,
   );
+  const firstDraft = primaryDrafts[0] ?? otherDrafts[0];
   const keyOf = (draft: ServiceDraft) => 'draft:' + draft.definition.working_directory;
   const view = visible.find((v) => v.definition.id === selected);
   const viewExternalChoices = view
@@ -388,9 +385,9 @@ export default function ServicesPage({
     if (!view && !draft && !externalView)
       setSelected(
         visible[0]?.definition.id ||
-          (external[0] ? `external:${external[0][0].pid}` : pending[0] ? keyOf(pending[0]) : ''),
+          (external[0] ? `external:${external[0][0].pid}` : firstDraft ? keyOf(firstDraft) : ''),
       );
-  }, [view, draft, visible, pending, externalView, external]);
+  }, [view, draft, visible, firstDraft, externalView, external]);
   useEffect(() => {
     setRunChoice('latest');
     setHistory([]);
@@ -582,9 +579,6 @@ export default function ServicesPage({
       directory,
       projects.find((p) => p.id === id),
     );
-  const hasChildDraft = drafts.some(
-    (d) => d.definition.working_directory !== project?.canonical_path,
-  );
   async function toggleFavorite(target: Project) {
     if (disabled || favoriteSaving.current) return;
     favoriteSaving.current = true;
@@ -756,7 +750,7 @@ export default function ServicesPage({
         <div className="service-list" role="region" aria-label={t('项目服务列表')} tabIndex={0}>
           <div className="port-list-header">
             <span>{t('服务配置')}</span>
-            <span>{visible.length + pending.length}</span>
+            <span>{visible.length}</span>
           </div>
           {!visible.length && !pending.length && (
             <div className="service-empty">
@@ -839,21 +833,20 @@ export default function ServicesPage({
               </div>
             </div>
           ))}
-          {pending
-            .filter(
-              (d) => !hasChildDraft || d.definition.working_directory !== project?.canonical_path,
-            )
-            .map(draftRow)}
-          {hasChildDraft &&
-            pending.some((d) => d.definition.working_directory === project?.canonical_path) && (
-              <details className="other-launches">
-                <summary>{t('其他启动方式')}</summary>
-                <p>{t('根目录脚本可能同时启动多个服务，请避免重复启动。')}</p>
-                {pending
-                  .filter((d) => d.definition.working_directory === project?.canonical_path)
-                  .map(draftRow)}
-              </details>
-            )}
+          {primaryDrafts.length > 0 && (
+            <div className="port-list-header">
+              <span>{t('启动建议')}</span>
+              <span>{primaryDrafts.length}</span>
+            </div>
+          )}
+          {primaryDrafts.map(draftRow)}
+          {otherDrafts.length > 0 && (
+            <details className="other-launches">
+              <summary>{t('其他启动方式')}</summary>
+              <p>{t('根目录脚本可能同时启动多个服务，请避免重复启动。')}</p>
+              {otherDrafts.map(draftRow)}
+            </details>
+          )}
           <div className="external-list-header">
             <span>
               {t('外部服务')} <small>{portsAvailable ? external.length : t('未知')}</small>

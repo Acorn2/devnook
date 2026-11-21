@@ -40,9 +40,7 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-let screenshotAppearance = root.dataset.theme;
 function updateScreenshots(appearance) {
-  screenshotAppearance = appearance;
   document.querySelectorAll('[data-theme-image]').forEach((preview) => {
     preview.src = `${preview.dataset.prefix}assets/${preview.dataset.themeImage}-${appearance}-${root.dataset.locale}.png`;
   });
@@ -61,26 +59,35 @@ document.querySelectorAll('[data-preview]').forEach((button) => {
   });
 });
 
-document.querySelectorAll('.feature-switch').forEach((group) => {
-  group.hidden = false;
-  group.querySelectorAll('[data-shot-choice]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const figure = group.closest('.feature-preview');
-      const image = figure.querySelector('img');
-      image.dataset.themeImage = button.dataset.shotChoice;
-      image.alt = button.dataset.shotAlt;
-      figure.querySelector('figcaption [data-shot-caption]').textContent =
-        button.dataset.shotCaption;
-      figure.querySelectorAll('[data-image-link]').forEach((link) => {
-        link.dataset.scene = button.dataset.shotChoice;
-      });
-      group.querySelectorAll('[data-shot-choice]').forEach((choice) => {
-        choice.setAttribute('aria-pressed', String(choice === button));
-      });
-      updateScreenshots(screenshotAppearance);
+const featureLinks = new Map(
+  [...document.querySelectorAll('[data-feature-link]')].map((link) => [
+    link.dataset.featureLink,
+    link,
+  ]),
+);
+if (featureLinks.size) {
+  const setActive = (id) => {
+    featureLinks.forEach((link, key) => link.classList.toggle('is-active', key === id));
+  };
+  featureLinks.forEach((link, id) => link.addEventListener('click', () => setActive(id)));
+  const stories = [...document.querySelectorAll('.feature-story')];
+  let featureFrame = 0;
+  const syncActiveFeature = () => {
+    featureFrame = 0;
+    const threshold = window.innerHeight * 0.35;
+    const current = stories.find((story) => {
+      const { top, bottom } = story.getBoundingClientRect();
+      return top <= threshold && bottom > threshold;
     });
-  });
-});
+    setActive(current ? current.id : null);
+  };
+  const queueActiveFeature = () => {
+    if (!featureFrame) featureFrame = requestAnimationFrame(syncActiveFeature);
+  };
+  window.addEventListener('scroll', queueActiveFeature, { passive: true });
+  window.addEventListener('resize', queueActiveFeature);
+  syncActiveFeature();
+}
 
 const copyButton = document.querySelector('#copy-config');
 copyButton.addEventListener('click', async () => {

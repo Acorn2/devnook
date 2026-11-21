@@ -136,15 +136,16 @@ export default function ServiceBrowser({ browser }: { browser: BrowserState }) {
 
 export function BrowserAddressField({ browser }: { browser: BrowserState }) {
   const [copied, setCopied] = useState(false);
+  const accessUrl = browser.selected?.access_url ?? browser.selected?.url;
   useEffect(() => {
     setCopied(false);
-  }, [browser.selected?.url]);
+  }, [accessUrl]);
   useEffect(() => {
     if (!copied) return;
     const timer = setTimeout(() => setCopied(false), 2000);
     return () => clearTimeout(timer);
   }, [copied]);
-  if (!browser.selected)
+  if (!browser.selected || !accessUrl)
     return (
       <span className="field-hint" role="status" title={browser.error}>
         {browser.reason}
@@ -156,12 +157,15 @@ export function BrowserAddressField({ browser }: { browser: BrowserState }) {
         <Select
           aria-label={t('选择浏览器地址')}
           value={browser.selected.url}
-          options={browser.http.map((address) => ({ value: address.url, label: address.url }))}
+          options={browser.http.map((address) => ({
+            value: address.url,
+            label: address.access_url ?? address.url,
+          }))}
           disabled={browser.opening || browser.loading}
           onValueChange={browser.select}
         />
       ) : (
-        <code>{browser.selected.url}</code>
+        <code>{accessUrl}</code>
       )}
       <button
         className="icon-button"
@@ -171,7 +175,7 @@ export function BrowserAddressField({ browser }: { browser: BrowserState }) {
           try {
             if (!navigator.clipboard)
               throw new Error(t('当前窗口无法访问剪贴板，请手动选择地址复制。'));
-            await navigator.clipboard.writeText(browser.selected!.url);
+            await navigator.clipboard.writeText(accessUrl);
             setCopied(true);
           } catch (error) {
             browser.report(error);

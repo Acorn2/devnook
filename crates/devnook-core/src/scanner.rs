@@ -3,7 +3,8 @@ mod manifests;
 mod purpose;
 mod walk;
 
-pub(crate) use purpose::node_script;
+pub(crate) use manifests::uvicorn_entrypoint;
+pub(crate) use purpose::{has_fastapi, node_script};
 
 use crate::model::{Candidate, ScanProgress};
 use serde_json::Value;

@@ -26,6 +26,8 @@ const {
   serviceCliCommands,
   serviceAgentInstructions,
   serviceIsActive,
+  groupServiceDrafts,
+  pendingServiceDrafts,
 } = await import(
   dataUrl(
     compile(await load('ServicePresentation.ts')).replace(
@@ -53,6 +55,63 @@ const binding = (changes = {}) => ({
   command: 'node server.js',
   first_seen: 0,
   ...changes,
+});
+
+test('a saved Vite service hides only its own draft, not the FastAPI draft at the project root', () => {
+  const backend = {
+    definition: {
+      name: 'FastAPI',
+      project_id: 'workbench',
+      working_directory: project.canonical_path,
+    },
+    command: 'python3 -m server',
+    independent_entrypoint: true,
+  };
+  const frontend = {
+    definition: {
+      name: 'web',
+      project_id: 'workbench',
+      working_directory: project.canonical_path + '/web',
+    },
+    command: 'npm run dev',
+  };
+  const drafts = [frontend, backend];
+  const saved = [
+    { definition: frontend.definition },
+    { definition: { ...backend.definition, project_id: 'other' } },
+  ];
+  assert.deepEqual(pendingServiceDrafts(drafts, saved, ''), [backend]);
+  assert.deepEqual(groupServiceDrafts([backend], drafts, project.canonical_path), {
+    primaryDrafts: [backend],
+    otherDrafts: [],
+  });
+  assert.deepEqual(pendingServiceDrafts(drafts, saved, 'PYTHON3'), [backend]);
+  assert.deepEqual(pendingServiceDrafts(drafts, saved, 'vite'), []);
+  assert.deepEqual(
+    pendingServiceDrafts(drafts, [...saved, { definition: backend.definition }], ''),
+    [],
+  );
+});
+
+test('an unverified root launch stays separate from child suggestions, including on older Core versions', () => {
+  const root = project.canonical_path;
+  const child = { definition: { working_directory: `${root}/web` }, command: 'npm run dev' };
+  for (const command of ['', 'npm run dev:all']) {
+    const rootDraft = { definition: { working_directory: root }, command };
+    const drafts = [child, rootDraft];
+    assert.deepEqual(groupServiceDrafts(drafts, drafts, root), {
+      primaryDrafts: [child],
+      otherDrafts: [rootDraft],
+    });
+    assert.deepEqual(groupServiceDrafts([rootDraft], drafts, root), {
+      primaryDrafts: [],
+      otherDrafts: [rootDraft],
+    });
+    assert.deepEqual(groupServiceDrafts([rootDraft], [rootDraft], root), {
+      primaryDrafts: [rootDraft],
+      otherDrafts: [],
+    });
+  }
 });
 
 test('global managed records lead with the project; project records lead with the saved service name', () => {

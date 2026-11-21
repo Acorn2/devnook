@@ -1,5 +1,6 @@
 use devnook_core::{
     model::{Project, ProjectEdit, ScanProgress},
+    service_model::{ReadinessKind, ServiceSave},
     Core,
 };
 use std::{
@@ -96,6 +97,110 @@ fn launch_suggestions_inherit_package_manager_and_refresh_without_registering_se
         .unwrap()
         .iter()
         .any(|d| d.definition.name == "frontend"));
+}
+
+#[test]
+fn fastapi_module_and_vite_have_separate_drafts_even_after_saving_vite() {
+    let temp = TempDir::new().unwrap();
+    let project = temp.path().join("archive");
+    write(&project, ".git", "gitdir: do-not-follow");
+    write(
+        &project,
+        "requirements.txt",
+        "fastapi>=0.115\nuvicorn[standard]>=0.30\n",
+    );
+    write(&project, "server/__init__.py", "");
+    write(
+        &project,
+        "server/__main__.py",
+        r#"import argparse
+import uvicorn
+from pathlib import Path
+
+def main():
+    Path('SHOULD_NOT_RUN').touch()
+    parser = argparse.ArgumentParser(description="API")
+    parser.add_argument("--root", default="posts")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8052)
+    args = parser.parse_args()
+    if args.host != '127.0.0.1':
+        parser.error('loopback only')
+    uvicorn.run(
+        create_app(args.root, database_url=None),
+        host=args.host,
+        port=args.port,
+    )
+
+if __name__ == "__main__":
+    main()
+"#,
+    );
+    write(
+        &project,
+        "run.py",
+        "from pathlib import Path\nPath('SHOULD_NOT_RUN').touch()\n",
+    );
+    write(
+        &project,
+        "web/package.json",
+        r#"{"scripts":{"dev":"vite"}}"#,
+    );
+    let project = project.canonicalize().unwrap();
+    let core = Core::new(&temp.path().join("registry.db")).unwrap();
+    let progress = scan(&core, &project, 0);
+    assert_eq!(progress.candidates.len(), 1);
+    let projects = core
+        .import_projects(&progress.id, vec![progress.candidates[0].id.clone()])
+        .unwrap();
+    let id = &projects[0].candidate.id;
+    let drafts = core.service_drafts(id).unwrap();
+    assert_eq!(drafts.len(), 2);
+    let frontend = drafts
+        .iter()
+        .find(|draft| draft.command == "npm run dev")
+        .unwrap();
+    let backend = drafts
+        .iter()
+        .find(|draft| draft.command == "python3 -m server")
+        .unwrap();
+    assert_eq!(backend.source, "server/__main__.py");
+    assert!(backend.independent_entrypoint);
+    assert!(!frontend.independent_entrypoint);
+    assert_eq!(backend.definition.name, "FastAPI");
+    assert_eq!(backend.definition.runtime_type, "PYTHON");
+    assert_eq!(Path::new(&backend.definition.working_directory), project);
+    assert_eq!(
+        Path::new(&frontend.definition.working_directory),
+        project.join("web")
+    );
+    assert_eq!(backend.definition.expected_ports, [8052]);
+    assert_eq!(backend.definition.readiness.kind, ReadinessKind::Port);
+    assert_eq!(backend.definition.readiness.port, Some(8052));
+    assert!(backend.definition.dependencies.is_empty());
+    assert!(backend.definition.environment.is_empty());
+    assert!(!backend.definition.shell_mode);
+    assert!(core.services().unwrap().is_empty());
+
+    let mut definition = frontend.definition.clone();
+    definition.name = "既有前端".into();
+    let stored = core
+        .save_service(ServiceSave {
+            definition,
+            secret_values: Default::default(),
+        })
+        .unwrap();
+    assert!(core.service_drafts(id).unwrap().iter().any(|draft| {
+        draft.command == "python3 -m server"
+            && draft.independent_entrypoint
+            && draft.definition.working_directory != stored.working_directory
+    }));
+    let services = core.services().unwrap();
+    assert_eq!(services.len(), 1);
+    assert_eq!(services[0].definition.revision, stored.revision);
+    assert_eq!(services[0].definition.name, "既有前端");
+    assert!(services[0].current_run.is_none());
+    assert!(!project.join("SHOULD_NOT_RUN").exists());
 }
 
 #[test]

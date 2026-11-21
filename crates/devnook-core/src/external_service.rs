@@ -187,6 +187,7 @@ pub(crate) fn configuration(
             },
             command: String::new(),
             source: "无法从当前工作目录唯一识别启动方式，请填写可重复执行的命令".into(),
+            independent_entrypoint: false,
         },
     };
     if let Some((spec, name, source)) =
@@ -197,10 +198,19 @@ pub(crate) fn configuration(
         draft.definition.executable = spec.executable.clone();
         draft.definition.args = spec.args.clone();
         draft.definition.shell_mode = false;
+        draft.definition.readiness = Readiness::default();
         draft.command = crate::service_drafts::display_command(&spec);
         draft.source = source;
     }
     draft.definition.expected_ports = ports(&process).into_iter().collect();
+    if draft
+        .definition
+        .readiness
+        .port
+        .is_some_and(|port| !draft.definition.expected_ports.contains(&port))
+    {
+        draft.definition.readiness = Readiness::default();
+    }
     // Only a manifest-backed suggestion; never copy ps output, env or IDE flags.
     draft
         .source

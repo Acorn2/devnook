@@ -12,6 +12,9 @@ const types = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.mp4': 'video/mp4',
+  '.vtt': 'text/vtt; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.xml': 'application/xml',
   '.txt': 'text/plain; charset=utf-8',
@@ -41,12 +44,32 @@ const server = createServer(async (request, response) => {
       return;
     }
     if ((await stat(path)).isDirectory()) path = join(path, 'index.html');
-    const body = await readFile(path);
-    response.writeHead(200, {
-      'Content-Type': types[extname(path)] || 'application/octet-stream',
+    let body = await readFile(path);
+    const extension = extname(path);
+    const headers = {
+      'Content-Type': types[extension] || 'application/octet-stream',
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
-    });
+    };
+    let status = 200;
+    if (extension === '.mp4') {
+      headers['Accept-Ranges'] = 'bytes';
+      const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range || '');
+      if (range && (range[1] || range[2])) {
+        const size = body.length;
+        const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+        const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+        if (start > end || start >= size) {
+          response.writeHead(416, { ...headers, 'Content-Range': `bytes */${size}` });
+          response.end();
+          return;
+        }
+        status = 206;
+        headers['Content-Range'] = `bytes ${start}-${end}/${size}`;
+        body = body.subarray(start, end + 1);
+      }
+    }
+    response.writeHead(status, { ...headers, 'Content-Length': body.length });
     response.end(request.method === 'HEAD' ? undefined : body);
   } catch {
     response.writeHead(404);

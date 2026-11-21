@@ -310,6 +310,9 @@ fn python_deps(root: &Path) -> (Vec<String>, bool, bool) {
         .is_some_and(|v| !v.is_empty());
     (deps, scripts, gui)
 }
+pub(crate) fn has_fastapi(root: &Path) -> bool {
+    python_deps(root).0.iter().any(|dep| dep == "fastapi")
+}
 fn xml_properties(text: &str) -> Option<(String, BTreeMap<String, String>)> {
     let mut reader = Reader::from_str(text);
     reader.config_mut().trim_text(true);

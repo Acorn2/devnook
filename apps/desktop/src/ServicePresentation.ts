@@ -1,5 +1,12 @@
 import { t } from './i18n';
-import type { PortBinding, Project, ServiceDefinition, ServiceState } from './types';
+import type {
+  PortBinding,
+  Project,
+  ServiceDefinition,
+  ServiceDraft,
+  ServiceState,
+  ServiceView,
+} from './types';
 
 type ProjectIdentity = Pick<Project, 'name' | 'canonical_path'>;
 export interface ServiceIdentity {
@@ -22,6 +29,39 @@ const serviceLabels: Record<ServiceState, string> = {
 };
 export const serviceStateLabel = (state?: ServiceState) =>
   t(state ? serviceLabels[state] : '未启动');
+
+export function pendingServiceDrafts(
+  drafts: ServiceDraft[],
+  services: ServiceView[],
+  query: string,
+) {
+  const search = query.toLowerCase();
+  return drafts.filter(
+    ({ definition, command }) =>
+      !services.some(
+        ({ definition: saved }) =>
+          saved.project_id === definition.project_id &&
+          saved.working_directory === definition.working_directory,
+      ) &&
+      [definition.name, command, definition.working_directory]
+        .join(' ')
+        .toLowerCase()
+        .includes(search),
+  );
+}
+
+export function groupServiceDrafts(pending: ServiceDraft[], drafts: ServiceDraft[], root?: string) {
+  const hasChildDraft =
+    !!root && drafts.some((draft) => draft.definition.working_directory !== root);
+  const primaryDrafts: ServiceDraft[] = [];
+  const otherDrafts: ServiceDraft[] = [];
+  for (const draft of pending) {
+    const isOther =
+      hasChildDraft && draft.definition.working_directory === root && !draft.independent_entrypoint;
+    (isOther ? otherDrafts : primaryDrafts).push(draft);
+  }
+  return { primaryDrafts, otherDrafts };
+}
 
 // These are display choices, never process ownership or permission to stop one.
 // A user selects an instance; Core independently validates and binds the preview.

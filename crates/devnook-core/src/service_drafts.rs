@@ -1,6 +1,6 @@
 //! Read-only launch suggestions. Drafts never register or execute a service.
 use crate::{
-    scanner::{identify, plain_file, read_manifest},
+    scanner::{has_fastapi, identify, plain_file, read_manifest, uvicorn_entrypoint},
     service_model::*,
     Core,
 };
@@ -21,6 +21,8 @@ pub struct ServiceDraft {
     pub definition: ServiceDefinition,
     pub command: String,
     pub source: String,
+    #[serde(default)]
+    pub independent_entrypoint: bool,
 }
 
 /// A small command-line tokenizer, never a shell evaluator.
@@ -371,7 +373,7 @@ impl Core {
             let Some(candidate) = identify(path, None).filter(|c| c.runnable) else {
                 continue;
             };
-            let name = if path == root {
+            let mut name = if path == root {
                 "根目录启动".to_string()
             } else {
                 path.strip_prefix(root)
@@ -379,15 +381,39 @@ impl Core {
                     .to_string_lossy()
                     .into_owned()
             };
-            let command = suggestion(path, root);
+            let mut command = suggestion(path, root);
+            let mut runtime = candidate.project_type.as_str();
+            let mut port = None;
+            let mut independent_entrypoint = false;
+            if command.is_none()
+                && candidate
+                    .frameworks
+                    .iter()
+                    .any(|framework| framework == "FastAPI")
+                && has_fastapi(path)
+            {
+                if let Some((args, source, detected_port)) = uvicorn_entrypoint(path) {
+                    command = Some((
+                        CommandSpec {
+                            executable: "python3".into(),
+                            args,
+                        },
+                        source,
+                    ));
+                    runtime = "PYTHON";
+                    port = detected_port;
+                    independent_entrypoint = true;
+                    if path == root {
+                        name = "FastAPI".into();
+                    }
+                }
+            }
             let definition = ServiceDefinition {
                 id: String::new(),
                 project_id: project_id.into(),
                 name,
-                runtime_type: if ["NODE", "JAVA", "PYTHON"]
-                    .contains(&candidate.project_type.as_str())
-                {
-                    candidate.project_type
+                runtime_type: if ["NODE", "JAVA", "PYTHON"].contains(&runtime) {
+                    runtime.into()
                 } else {
                     "OTHER".into()
                 },
@@ -403,9 +429,16 @@ impl Core {
                 working_directory: text,
                 environment: BTreeMap::new(),
                 secret_keys: vec![],
-                expected_ports: vec![],
+                expected_ports: port.into_iter().collect(),
                 dependencies: vec![],
-                readiness: Readiness::default(),
+                readiness: match port {
+                    Some(port) => Readiness {
+                        kind: ReadinessKind::Port,
+                        port: Some(port),
+                        ..Readiness::default()
+                    },
+                    None => Readiness::default(),
+                },
                 stop_grace_seconds: 5,
                 log_limit_kb: 1024,
                 revision: String::new(),
@@ -421,6 +454,7 @@ impl Core {
                 source: command
                     .map(|c| c.1)
                     .unwrap_or_else(|| "需要补充启动命令".into()),
+                independent_entrypoint,
             });
         }
         drafts.sort_by_key(|d| {

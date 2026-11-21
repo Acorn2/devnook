@@ -22,6 +22,9 @@ pub struct BrowserAddress {
     pub url: String,
     pub pid: u32,
     pub fingerprint: String,
+    /// Optional localhost alias for a verified IPv6 loopback endpoint.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access_url: Option<String>,
     /// GUI hint: HTML root response / known web entry, non-page response, or
     /// unknown. It never grants control capability or changes process purpose.
     #[serde(default)]
@@ -141,6 +144,7 @@ fn addresses(target: &BrowserTarget, details: &[ProcessDetail]) -> Vec<BrowserAd
                         url,
                         pid: detail.pid,
                         fingerprint: detail.fingerprint.clone(),
+                        access_url: None,
                         web_ui: crate::process_kind::browser_entry(
                             detail.executable.as_deref(),
                             &detail.command,
@@ -260,7 +264,7 @@ fn annotate_pages(addresses: &mut [BrowserAddress], mut probe: impl FnMut(&str) 
 fn checked_address<'a>(
     current: &'a [BrowserAddress],
     requested: &BrowserAddress,
-) -> Result<&'a str, String> {
+) -> Result<&'a BrowserAddress, String> {
     current
         .iter()
         .find(|address| {
@@ -268,8 +272,32 @@ fn checked_address<'a>(
                 && address.pid == requested.pid
                 && address.fingerprint == requested.fingerprint
         })
-        .map(|address| address.url.as_str())
         .ok_or_else(|| "服务监听或进程身份已变化，请刷新地址后重试".into())
+}
+
+fn localhost_alias(address: &BrowserAddress, ports: &[PortBinding]) -> Option<String> {
+    let mut url = url::Url::parse(&address.url).ok()?;
+    let port = url.port_or_known_default()?;
+    if url.host_str()? != "[::1]" {
+        return None;
+    }
+    // A browser can choose either loopback family for localhost. Preserve the
+    // exact host if a different process can receive the same port there.
+    if ports.iter().any(|binding| {
+        if binding.port != port || binding.pid == address.pid {
+            return false;
+        }
+        let host = binding.address.trim_matches(['[', ']']);
+        host == "*"
+            || host.parse::<IpAddr>().is_ok_and(|ip| {
+                let ip = ip.to_canonical();
+                ip.is_loopback() || ip.is_unspecified()
+            })
+    }) {
+        return None;
+    }
+    url.set_host(Some("localhost")).ok()?;
+    Some(url.to_string())
 }
 
 impl CoreClient {
@@ -304,7 +332,11 @@ impl CoreClient {
             // reuse stale addresses; a later refresh can rediscover it.
             details.push(self.inspect(pid)?);
         }
-        Ok(addresses(target, &details))
+        let mut choices = addresses(target, &details);
+        for address in &mut choices {
+            address.access_url = localhost_alias(address, &ports);
+        }
+        Ok(choices)
     }
 
     pub fn service_browser_addresses(
@@ -409,9 +441,9 @@ impl CoreClient {
             return Err("浏览器快捷打开目前仅支持 macOS".into());
         }
         let current = self.browser_candidates(target)?;
-        let url = checked_address(&current, address)?;
+        let current = checked_address(&current, address)?;
         let status = Command::new("/usr/bin/open")
-            .arg(url)
+            .arg(current.access_url.as_deref().unwrap_or(&current.url))
             .status()
             .map_err(|_| "无法打开默认浏览器，请检查系统默认浏览器设置")?;
         if !status.success() {
@@ -551,8 +583,8 @@ mod tests {
         let listener = UnixListener::bind(&socket).unwrap();
         fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
         listener.set_nonblocking(true).unwrap();
-        let http_listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let mut http_binding = binding("127.0.0.1", "IPv4");
+        let http_listener = std::net::TcpListener::bind("[::1]:0").unwrap();
+        let mut http_binding = binding("[::1]", "IPv6");
         http_binding.port = http_listener.local_addr().unwrap().port();
         let port = http_binding.port;
         let http_server = thread::spawn(move || {
@@ -616,7 +648,11 @@ mod tests {
             .service_browser_addresses(&BrowserTarget::External { pid: 42 })
             .unwrap();
         assert_eq!(choices.len(), 2);
-        assert_eq!(choices[0].url, format!("http://127.0.0.1:{port}/"));
+        assert_eq!(choices[0].url, format!("http://[::1]:{port}/"));
+        assert_eq!(
+            choices[0].access_url,
+            Some(format!("http://localhost:{port}/"))
+        );
         assert!(choices.iter().all(|choice| choice.web_ui == Some(true)));
         let shortcuts = client.tray_browser_shortcuts().unwrap();
         assert_eq!(shortcuts.len(), 1);
@@ -709,19 +745,58 @@ mod tests {
     }
 
     #[test]
+    fn ipv6_loopback_uses_localhost_only_without_a_conflicting_listener() {
+        let target = BrowserTarget::External { pid: 42 };
+        for host in ["[::1]", "*", "[::]"] {
+            let ipv6 = binding(host, "IPv6");
+            let choices = addresses(&target, &[detail(vec![ipv6.clone()])]);
+            for (choice, scheme) in choices.iter().zip(["http", "https"]) {
+                assert_eq!(
+                    localhost_alias(choice, std::slice::from_ref(&ipv6)),
+                    Some(format!("{scheme}://localhost:5173/"))
+                );
+                for host in ["127.0.0.1", "*", "0.0.0.0", "[::ffff:127.0.0.1]"] {
+                    let mut other = binding(host, "IPv4");
+                    other.pid = 43;
+                    other.project_id = None;
+                    assert_eq!(localhost_alias(choice, &[ipv6.clone(), other]), None);
+                }
+                let mut other = binding("127.0.0.1", "IPv4");
+                other.pid = 43;
+                other.port = 3000;
+                assert!(localhost_alias(choice, &[ipv6.clone(), other]).is_some());
+            }
+        }
+        for (host, family) in [("127.0.0.1", "IPv4"), ("[fd00::1]", "IPv6")] {
+            let listener = binding(host, family);
+            let choices = addresses(&target, &[detail(vec![listener.clone()])]);
+            assert!(choices.iter().all(|choice| localhost_alias(
+                choice,
+                std::slice::from_ref(&listener)
+            )
+            .is_none()));
+        }
+    }
+
+    #[test]
     fn opening_requires_an_exact_current_address_and_process_identity() {
         let address = BrowserAddress {
             url: "http://127.0.0.1:5173/".into(),
             pid: 42,
             fingerprint: "start-a".into(),
+            access_url: None,
             web_ui: Some(false),
         };
         assert!(checked_address(std::slice::from_ref(&address), &address).is_ok());
         let hint_only = BrowserAddress {
+            access_url: Some("https://evil.test/".into()),
             web_ui: Some(true),
             ..address.clone()
         };
-        assert!(checked_address(std::slice::from_ref(&address), &hint_only).is_ok());
+        assert_eq!(
+            checked_address(std::slice::from_ref(&address), &hint_only).unwrap(),
+            &address
+        );
         for changed in [
             BrowserAddress {
                 pid: 43,
@@ -763,6 +838,7 @@ mod tests {
             "url": "http://127.0.0.1:5173/", "pid": 42, "fingerprint": "start-a"
         }))
         .unwrap();
+        assert!(legacy.access_url.is_none());
         assert!(legacy.web_ui.is_none());
     }
 

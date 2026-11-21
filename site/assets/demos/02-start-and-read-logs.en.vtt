@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:03.368 line:77%
+Open the project's service list and find the saved Notes API configuration.
+
+00:00:03.368 --> 00:00:09.668 line:77%
+Click Start, then review the command and working directory before confirming.
+
+00:00:09.668 --> 00:00:13.868 line:77%
+Wait for Ready, then check the actual listener.
+
+00:00:13.868 --> 00:00:19.172 line:77%
+Check the run logs to confirm the API is accepting requests.

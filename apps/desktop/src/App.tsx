@@ -2209,7 +2209,7 @@ function SettingsPage({
         />
         <div>
           <strong>
-            DevNook <span>v0.1.6</span>
+            DevNook <span>v0.1.7</span>
           </strong>
           <p>Your Local Development Workspace</p>
           <p>{t('管理本地项目、服务和端口，支持终端命令与可选的 AI 助手接入。')}</p>

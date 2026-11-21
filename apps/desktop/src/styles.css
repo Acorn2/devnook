@@ -1410,8 +1410,11 @@ h1 {
   padding: 0.35rem 1.25rem 0.65rem;
 }
 .scan-search .search-field {
-  min-width: 10rem;
+  min-width: min(14rem, 100%);
   height: var(--control-height);
+}
+.scan-status-filter > button > span {
+  font-variant-numeric: tabular-nums;
 }
 .scan-search .icon-button {
   min-width: 1.8rem;
@@ -1506,9 +1509,18 @@ h1 {
 }
 .scan-warnings {
   flex-shrink: 0;
+  border-top: 1px solid var(--line);
+}
+.scan-warnings > summary {
+  padding: 0.4rem 1.25rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+.scan-warning-list {
   max-height: 5rem;
   overflow: auto;
-  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
 }
 .scan-dialog .scan-warning {
   margin: 0.5rem 1.25rem;
@@ -1533,6 +1545,13 @@ h1 {
   font-size: 0.8rem;
   padding-left: 0.1rem;
   outline-offset: -2px;
+}
+.directory-input .select-control {
+  flex-shrink: 0;
+}
+.directory-input .select-trigger {
+  min-height: var(--control-height-small);
+  font-size: 0.81rem;
 }
 .scan-options {
   display: flex;
@@ -1623,11 +1642,6 @@ h1 {
   background: var(--surface-subtle);
   font-size: 0.79rem;
 }
-.select-all span {
-  font-size: 0.71rem;
-  color: var(--muted);
-  margin-left: auto;
-}
 .candidate-list {
   max-height: 23rem;
   overflow: auto;
@@ -1686,6 +1700,11 @@ h1 {
   border: 1px solid var(--line-strong);
   padding: 0.1rem 0.4rem;
   border-radius: 0.25rem;
+}
+.candidate-state.unimported {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
 }
 .candidate-state.warning {
   color: var(--text-secondary);
@@ -2823,6 +2842,11 @@ main.workbench-page {
   .workbench-page .page-heading p {
     display: none;
   }
+  .scan-dialog .modal-head,
+  .scan-dialog .modal-actions,
+  .scan-dialog .scan-config {
+    padding-block: 0.7rem;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -3551,7 +3575,7 @@ main.workbench-page {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.service-section-switch {
+:is(.service-section-switch, .scan-status-filter) {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -3562,7 +3586,7 @@ main.workbench-page {
   border-radius: 0.5rem;
   background: var(--panel);
 }
-.service-section-switch > button {
+:is(.service-section-switch, .scan-status-filter) > button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3575,10 +3599,10 @@ main.workbench-page {
   font-size: 0.8rem;
   white-space: nowrap;
 }
-.service-section-switch > button:hover {
+:is(.service-section-switch, .scan-status-filter) > button:hover {
   background: var(--accent-soft);
 }
-.service-section-switch > button[aria-pressed='true'] {
+:is(.service-section-switch, .scan-status-filter) > button[aria-pressed='true'] {
   background: var(--accent-soft);
   color: var(--accent);
 }

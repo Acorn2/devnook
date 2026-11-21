@@ -2,6 +2,13 @@ export const repo = 'https://github.com/Acorn2/devnook';
 export const origin = 'https://acorn2.github.io';
 export const basePath = '/devnook/';
 
+export const demos = {
+  projects: { file: '01-scan-and-import', seconds: 19 },
+  services: { file: '02-start-and-read-logs', seconds: 19 },
+  ports: { file: '03-find-process-by-port', seconds: 14 },
+  plans: { file: '04-start-services-in-order', seconds: 17 },
+};
+
 export const content = {
   zh: {
     lang: 'zh-CN',
@@ -15,12 +22,30 @@ export const content = {
     languageText: 'EN',
     theme: ['切换到暗色', '切换到浅色'],
     start: '开始使用',
+    demoHeading: '实操短片',
+    demoIntro: '每段不到 20 秒，用演示项目一步步操作。',
+    demoLabels: {
+      projects: '扫描导入项目',
+      services: '启动服务与查看日志',
+      ports: '从端口定位进程',
+      plans: '按依赖顺序启动服务',
+    },
+    demoDuration: '{seconds} 秒',
+    demoFile: '直接打开视频（MP4）',
     eyebrow: 'macOS 本地项目与服务管理器',
     heading: ['找项目。', '开服务。', '查端口。'],
     intro:
       'DevNook 把代码目录、常用编辑器和正在运行的服务放进一个桌面工作台。导入项目后，确认启动前后端，在同一处看日志、找端口占用。',
     source: '在 GitHub 查看源码',
     meta: 'macOS 12+ · 本机数据 · MIT 开源',
+    heroChips: ['只读扫描', '配置与执行分开', '实际 TCP 监听', '本机保存'],
+    floatTitle: '本机数据',
+    floatBody: '项目与配置留在本机。',
+    featureNav: ['项目发现', '服务与日志', '菜单栏', '端口与进程', '启动方案'],
+    boundaryEyebrow: '安全边界',
+    readonlyBadge: '默认只读',
+    faqMore: '没找到答案？',
+    faqMoreLink: '去 GitHub 提问',
     preview: '应用界面预览',
     previewZoom: '查看完整应用截图（新窗口）',
     previewFull: '查看原图',
@@ -134,15 +159,13 @@ export const content = {
     author: '由 Hresh赫什 构建',
     noScript:
       '本页主要内容无需 JavaScript。源码与使用文档可直接访问；发布状态请查看 GitHub Releases。',
-    screenshotViews: '服务界面截图',
     featuresEyebrow: '功能与实际界面',
     featuresTitle: '从找到工程，到看清它怎么运行。',
     featuresIntro:
-      '下面用同一组演示项目，查看当前源码界面的项目、服务与端口功能。截图使用演示数据，安装包功能以对应版本的发布说明为准。',
+      '看实操短片，了解如何导入项目、启动服务和排查端口。示例均使用演示数据；安装包功能以对应版本的发布说明为准。',
     features: [
       {
         id: 'projects',
-        scene: 'scan',
         label: '01 / 项目发现与整理',
         title: '先找到项目，\n再决定导入哪些。',
         body: '选择一个存放代码的目录，查看扫描候选与内部组件，再勾选导入。前后端和共享库可以归到同一个工程，独立仓库也能单独保留。',
@@ -152,12 +175,9 @@ export const content = {
           '技术栈使用彩色标签；同一项目的图标和实际端口保持一致配色，跨页面更容易辨认。',
         ],
         note: '扫描与导入都不会执行项目命令；非标准目录可以选择深度补扫。',
-        caption: '导入预览 · 项目边界、前后端服务候选与共享组件',
-        alt: '扫描预览展示 Meridian Shop 的前端、API 与共享类型，并在导入前提供勾选确认',
       },
       {
         id: 'services',
-        scene: 'services',
         label: '02 / 服务与日志',
         title: '按项目找到服务，\n再看运行与入口。',
         body: '全局列表先看项目名，项目内先看服务名。名称、相对目录与实际端口区分同一项目的多个服务，右侧详情始终对应当前选择。',
@@ -168,28 +188,6 @@ export const content = {
           '按运行记录回看 stdout / stderr 并搜索日志；关闭窗口后，已启动的服务继续运行。',
         ],
         note: '外部服务可复用已保存配置，预览后单独确认切换；保存配置与普通启动都不会自动停止外部实例。',
-        caption: '网页入口 · 项目与组件目录、HTTP 地址、命令与工作目录',
-        alt: '全局服务列表以项目名为标题，选中的自定义 Node 网页服务显示 HTTP 访问地址与打开浏览器按钮',
-        shots: [
-          {
-            scene: 'services',
-            label: '网页入口',
-            caption: '网页入口 · 项目与组件目录、HTTP 地址、命令与工作目录',
-            alt: '自定义 Node 网页服务显示 HTTP 访问地址和打开浏览器主按钮',
-          },
-          {
-            scene: 'service-api',
-            label: 'API 详情',
-            caption: 'API 详情 · 展示实际监听，进程信息按需展开',
-            alt: 'Node API 服务显示实际监听地址、启动命令与工作目录，没有浏览器主按钮',
-          },
-          {
-            scene: 'service-logs',
-            label: '运行日志',
-            caption: '项目内服务 · 服务名、实际端口与可搜索的运行日志',
-            alt: '项目内以 API、前端和数据库服务名为标题，右侧显示 API 运行记录与日志',
-          },
-        ],
       },
       {
         id: 'tray',
@@ -210,7 +208,6 @@ export const content = {
       },
       {
         id: 'ports',
-        scene: 'ports',
         label: '04 / 端口与进程',
         title: '端口被占用时，先看清是谁。',
         body: '从 TCP 监听端口定位进程，查看命令、工作目录、启动时间与项目归属。区分 DevNook 托管和外部启动，再决定下一步操作。',
@@ -220,12 +217,9 @@ export const content = {
           '悬停端口不再弹出整段命令。长命令默认显示四行，可展开、收起或复制完整内容。',
         ],
         note: '颜色辅助识别，状态以文字与实际快照为准。未检测到监听不等于项目已停止；身份未知的进程保持只读。',
-        caption: '端口详情 · 监听地址、进程命令、目录与项目归属',
-        alt: '端口管理选中 3001 端口，显示 Java 进程、四行命令预览、展开与复制按钮、IPv4 和 IPv6 地址以及 Meridian Shop 项目归属',
       },
       {
         id: 'plans',
-        scene: 'plans',
         label: '05 / 多服务启动方案',
         title: '数据库就绪，\n再启动 API 和前端。',
         body: '把已登记的服务组成启动方案。入口可以来自多个项目，依赖会自动展开，等待上游就绪后再启动下游。',
@@ -234,8 +228,6 @@ export const content = {
           '复用原本运行的服务；失败或取消时，仅回滚本次新增的运行。',
         ],
         note: '启动方案位于“服务管理”内。保存方案只保存配置，不会启动服务。',
-        caption: '启动方案 · 依赖顺序、就绪状态与本次运行归属',
-        alt: 'Meridian 全栈启动方案按 PostgreSQL、API、前端顺序展示依赖和就绪状态，并注明保留复用的数据库服务',
       },
     ],
     taskLinks: [
@@ -259,12 +251,30 @@ export const content = {
     languageText: '中文',
     theme: ['Switch to dark mode', 'Switch to light mode'],
     start: 'Get started',
+    demoHeading: 'Quick demos',
+    demoIntro: 'Each clip is under 20 seconds. The app is shown in Chinese, with English captions.',
+    demoLabels: {
+      projects: 'Scan and import a project',
+      services: 'Start a service and read logs',
+      ports: 'Trace a port to its process',
+      plans: 'Start services in dependency order',
+    },
+    demoDuration: '{seconds} sec',
+    demoFile: 'Open video file (MP4)',
     eyebrow: 'LOCAL PROJECTS & SERVICES FOR macOS',
     heading: ['Find projects.', 'Run services.', 'Trace ports.'],
     intro:
       'DevNook brings your code folders, preferred editors, and running services into one desktop app. Import a project, confirm a frontend or backend start, then read logs and investigate occupied ports in the same place.',
     source: 'View source on GitHub',
     meta: 'macOS 12+ · Local data · MIT licensed',
+    heroChips: ['Read-only scans', 'Save ≠ run', 'Actual TCP listeners', 'Local storage'],
+    floatTitle: 'Local by default',
+    floatBody: 'Projects and configuration stay local.',
+    featureNav: ['Discover', 'Services', 'Menu bar', 'Ports', 'Plans'],
+    boundaryEyebrow: 'SAFETY BOUNDARIES',
+    readonlyBadge: 'READ-ONLY BY DEFAULT',
+    faqMore: 'Still have a question?',
+    faqMoreLink: 'Ask on GitHub',
     preview: 'App preview',
     previewZoom: 'Open full-size app screenshot (new tab)',
     previewFull: 'Full size',
@@ -392,15 +402,13 @@ export const content = {
     author: 'Built by Hresh赫什',
     noScript:
       'The main content works without JavaScript. Open the source and documentation directly; check GitHub Releases for publication status.',
-    screenshotViews: 'Service screenshot views',
     featuresEyebrow: 'FEATURES, ON SCREEN',
     featuresTitle: 'From finding a project to knowing how it runs.',
     featuresIntro:
-      'Follow one set of demo projects through the current source interface. Screenshots use demo data; installer features follow the release notes for that version.',
+      'Watch short demos to learn how to import projects, start services, and investigate ports. All examples use demo data; check the release notes for the features in your installer.',
     features: [
       {
         id: 'projects',
-        scene: 'scan',
         label: '01 / DISCOVER & ORGANIZE',
         title: 'Find your projects. Choose what to import.',
         body: 'Select a code directory, review project candidates and their components, then import the ones you want. Frontends, backends, and shared packages can stay together; independent repositories can remain separate.',
@@ -410,12 +418,9 @@ export const content = {
           'Colored stack labels and consistent project colors connect project icons with actual ports across views.',
         ],
         note: 'Scanning and importing execute no project commands. Use a deeper scan for nonstandard layouts.',
-        caption: 'Import preview · Project boundaries, service candidates, and shared components',
-        alt: 'Import preview showing the Meridian Shop frontend, API, and shared types before the user selects projects to import',
       },
       {
         id: 'services',
-        scene: 'services',
         label: '02 / SERVICES & LOGS',
         title: 'Find the service. See its run and page entry.',
         body: 'The global list leads with project names; project views lead with service names. Names, relative directories, and actual ports distinguish services, with details matching the current selection.',
@@ -426,28 +431,6 @@ export const content = {
           'Read stdout / stderr by run and search logs. Started services continue after you close the window.',
         ],
         note: 'Reuse a saved configuration for an external service, then preview and separately confirm the switch. Saving configuration or using ordinary start never stops an external instance automatically.',
-        caption: 'Page entry · Project and component, HTTP URL, launch command, and directory',
-        alt: 'Global services titled by project, with a selected custom Node web server showing its HTTP URL and Open in browser button',
-        shots: [
-          {
-            scene: 'services',
-            label: 'Page entry',
-            caption: 'Page entry · Project and component, HTTP URL, command, and directory',
-            alt: 'Custom Node web server with its HTTP URL and primary Open in browser button',
-          },
-          {
-            scene: 'service-api',
-            label: 'API details',
-            caption: 'API details · Actual listeners, with expandable process facts',
-            alt: 'Node API details with actual listeners, launch command, and directory, without a primary browser shortcut',
-          },
-          {
-            scene: 'service-logs',
-            label: 'Run logs',
-            caption: 'Project services · Service names, actual ports, and searchable run logs',
-            alt: 'Project API, frontend, and database titled by service name, with API run history and logs on the right',
-          },
-        ],
       },
       {
         id: 'tray',
@@ -468,7 +451,6 @@ export const content = {
       },
       {
         id: 'ports',
-        scene: 'ports',
         label: '04 / PORTS & PROCESSES',
         title: 'A port is occupied. See what is behind it.',
         body: 'Trace a TCP listener to its process. Inspect the command, working directory, start time, and project ownership. Distinguish managed and externally started processes before acting.',
@@ -478,13 +460,9 @@ export const content = {
           'Port hover stays clear. Long commands show four lines by default, with expand, collapse, and full-command copy.',
         ],
         note: 'Color helps identify projects; text and current snapshots describe state. No detected listener does not mean a project has stopped. Unknown processes stay read-only.',
-        caption:
-          'Port details · Listening addresses, process command, directory, and project ownership',
-        alt: 'Port 3001 selected with a Java process, a four-line command preview, expand and copy controls, IPv4 and IPv6 listeners, and its Meridian Shop project association',
       },
       {
         id: 'plans',
-        scene: 'plans',
         label: '05 / MULTI-SERVICE STARTUP',
         title: 'Database first. Then your API and frontend.',
         body: 'Combine registered services into a startup plan. Entry services can span projects. Dependencies expand automatically, and downstream services wait for upstream readiness.',
@@ -493,8 +471,6 @@ export const content = {
           'Reuse existing services. Failure or cancellation rolls back only runs created by this attempt.',
         ],
         note: 'Startup plans live inside Services. Saving a plan stores configuration without launching services.',
-        caption: 'Startup plan · Dependency order, readiness, and run ownership',
-        alt: 'Meridian full-stack plan showing PostgreSQL, API, and frontend readiness in dependency order, with the reused database retained',
       },
     ],
     taskLinks: [
