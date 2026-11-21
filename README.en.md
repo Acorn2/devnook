@@ -23,7 +23,7 @@
 
 **Find projects. Run services. Trace ports.** DevNook brings code folders, preferred editors, launch configurations, and runtime state into one macOS desktop app. Import existing projects, confirm frontend and backend starts, read logs, and trace an occupied port to its process and directory.
 
-[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.6/DevNook_0.1.6_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.6/DevNook_0.1.6_x64.dmg) · [v0.1.6 release notes and checksums](https://github.com/Acorn2/devnook/releases/tag/v0.1.6) · [Build from source](#quick-start)
+[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.7/DevNook_0.1.7_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.7/DevNook_0.1.7_x64.dmg) · [v0.1.7 release notes and checksums](https://github.com/Acorn2/devnook/releases/tag/v0.1.7) · [Build from source](#quick-start)
 
 If you work across several local projects, start with these tasks:
 
@@ -139,7 +139,7 @@ Scan and import a project, start a service and read its logs, trace an occupied 
 
 ## Quick start
 
-To use the desktop app, choose the Apple Silicon or Intel Mac DMG from [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest), open it, and drag DevNook into Applications. The current installers are ad-hoc signed and have not completed Developer ID signing or Apple notarization. macOS may block the first launch; see the [v0.1.6 release notes](docs/releases/v0.1.6.md) for signing details and checksum verification.
+To use the desktop app, choose the Apple Silicon or Intel Mac DMG from [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest), open it, and drag DevNook into Applications. The current installers are ad-hoc signed and have not completed Developer ID signing or Apple notarization. macOS may block the first launch; see the [v0.1.7 release notes](docs/releases/v0.1.7.md) for signing details and checksum verification.
 
 The steps below build from source. The target platform is **macOS 12+**, with separate Apple Silicon and Intel builds. The Intel build passed Rosetta tests on an Apple Silicon host. Native window interactions were not revalidated for this release; Intel hardware and physical macOS 12 devices still need verification. Windows / Linux installers are not available; see the future directions below.
 

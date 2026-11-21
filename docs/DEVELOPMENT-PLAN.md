@@ -1521,3 +1521,8 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 
 - 有短片的四个功能直接用播放器替代独立截图和折叠入口，保留播放器封面与原有视频锚点。首屏预览、暂无视频的菜单栏截图及 README 不变。
 - `pnpm site:build`、`pnpm site:check`（8 项发布检查、98 项站点链接／资源检查）和 `git diff --check` 通过。浏览器验证 1440px 桌面与 375px 移动端，播放器可直接播放，初次载入不请求 MP4，英文字幕正常；未发布。
+
+## v0.1.7 双架构发行（2026-11-21）
+
+- 正式构建 Apple Silicon 与 Intel Mac 两个 DMG，并在只读挂载中核对签名、架构、macOS 12.0 最低版本、镜像文件与 Applications 入口。两个包内的隔离 Core 均验证 FastAPI 建议和 Vite 建议互相独立；Intel 在 Apple Silicon 上通过 Rosetta 校验。完成原生窗口只读启动检查，未切换用户的运行实例。
+- 两架构的 Release workspace 各 105 项通过、5 个 fixture 忽略；前端 40 项通过，类型、格式、站点校验及 [标签源码 CI](https://github.com/Acorn2/devnook/actions/runs/44845708804) 通过。[v0.1.7](https://github.com/Acorn2/devnook/releases/tag/v0.1.7) 两份 DMG 和两份校验文件均从公开地址重新下载，并核对与本地产物 SHA-256 一致。双架构包均为 ad-hoc 签名、未公证。

@@ -23,7 +23,7 @@
 
 **找项目、开服务、查端口。** DevNook 把磁盘上的代码工程、常用编辑器、启动配置和运行状态放进一个桌面工作台。你可以导入已有项目，确认启动前后端服务，集中查看日志，或从占用端口找到对应进程和目录。
 
-[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.6/DevNook_0.1.6_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.6/DevNook_0.1.6_x64.dmg) · [v0.1.6 发布说明与校验文件](https://github.com/Acorn2/devnook/releases/tag/v0.1.6) · [从源码运行](#快速开始)
+[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.7/DevNook_0.1.7_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.7/DevNook_0.1.7_x64.dmg) · [v0.1.7 发布说明与校验文件](https://github.com/Acorn2/devnook/releases/tag/v0.1.7) · [从源码运行](#快速开始)
 
 如果你同时维护几个本地工程，可以从这些任务开始：
 
@@ -139,7 +139,7 @@ CLI 与可选的 MCP 接入共用桌面的本机后台、项目库、服务配�
 
 ## 快速开始
 
-直接使用可从 [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest) 按芯片选择 Apple Silicon 或 Intel Mac DMG，打开后将 DevNook 拖入 Applications。当前安装包采用 ad-hoc 签名，尚未完成 Developer ID 签名或 Apple 公证；首次打开可能被 macOS 阻止，来源与校验说明见 [v0.1.6 发布说明](docs/releases/v0.1.6.md)。
+直接使用可从 [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest) 按芯片选择 Apple Silicon 或 Intel Mac DMG，打开后将 DevNook 拖入 Applications。当前安装包采用 ad-hoc 签名，尚未完成 Developer ID 签名或 Apple 公证；首次打开可能被 macOS 阻止，来源与校验说明见 [v0.1.7 发布说明](docs/releases/v0.1.7.md)。
 
 以下步骤用于从源码运行，目标平台为 **macOS 12+**，提供 Apple Silicon 与 Intel 两种构建。Intel 构建已通过 Apple Silicon 主机上的 Rosetta 测试；本版未重新验收原生窗口交互，Intel 和 macOS 12 真机仍需补充验证。Windows / Linux 暂不提供安装包，后续方向见下方说明。
 
