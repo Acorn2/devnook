@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Code2,
   Check,
+  ChevronRight,
   CircleAlert,
   LoaderCircle,
   Pencil,
@@ -68,6 +69,8 @@ import type {
 } from './types';
 import type { MainNavigation } from './TrayPresentation';
 const active = serviceIsActive;
+const isLaunchable = ({ current_run }: ServiceView) =>
+  !current_run || current_run.state === 'STOPPED';
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const date = (value: number) =>
   new Date(value * 1000).toLocaleString(dateLocale(), { hour12: false });
@@ -160,9 +163,11 @@ export default function ServicesPage({
   notify: (s: string) => void;
 }) {
   const [services, setServices] = useState<ServiceView[]>([]);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
   const [selected, setSelected] = useState('');
   const [filter, setFilter] = useState(projectId);
   const [query, setQuery] = useState('');
+  const [launchableOpen, setLaunchableOpen] = useState<boolean | null>(null);
   const [editing, setEditing] = useState<ServiceDefinition | null>(null);
   const [archive, setArchive] = useState<ServiceDefinition | null>(null);
   const [confirmation, setConfirmation] = useState<ServiceActionPreview | null>(null);
@@ -259,6 +264,7 @@ export default function ServicesPage({
       setFetchError(message(e));
     } finally {
       refreshing.current = false;
+      setServicesLoaded(true);
     }
   }, [disabled]);
   const navigationStarted = useRef(0);
@@ -287,6 +293,7 @@ export default function ServicesPage({
         const values = await call<ServiceView[]>('list_services');
         serviceVersion.current += 1;
         setServices(values);
+        setServicesLoaded(true);
         setFetchError('');
         setFilter('');
         setQuery('');
@@ -294,6 +301,7 @@ export default function ServicesPage({
           const destination = request.destination;
           const target = values.find((value) => value.definition.id === destination.id);
           if (!target) throw new Error(t('服务配置已不存在，请重新选择。'));
+          if (isLaunchable(target)) setLaunchableOpen(true);
           setSelected(destination.id);
           if (destination.action)
             setConfirmation(
@@ -342,7 +350,10 @@ export default function ServicesPage({
   useEffect(() => {
     if (!disabled) void refreshPorts();
   }, [runStates, disabled, refreshPorts]);
-  useEffect(() => setFilter(projectId), [projectId]);
+  useEffect(() => {
+    setFilter(projectId);
+    if (projectId) setLaunchableOpen(null);
+  }, [projectId]);
   const visible = services.filter(
     (v) =>
       (!filter || v.definition.project_id === filter) &&
@@ -357,6 +368,16 @@ export default function ServicesPage({
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+  const running: ServiceView[] = [];
+  const launchable: ServiceView[] = [];
+  const needsAttention: ServiceView[] = [];
+  for (const service of visible) {
+    const state = service.current_run?.state;
+    if (isLaunchable(service)) launchable.push(service);
+    else if (state !== 'UNKNOWN' && active(state)) running.push(service);
+    else needsAttention.push(service);
+  }
+  const showLaunchable = launchableOpen ?? !!query.trim();
   const pending = pendingServiceDrafts(drafts, services, query);
   const { primaryDrafts, otherDrafts } = groupServiceDrafts(
     pending,
@@ -381,13 +402,17 @@ export default function ServicesPage({
     report,
   });
   const draft = pending.find((d) => keyOf(d) === selected);
+  const firstService = (projectId ? visible : running)[0]?.definition.id;
+  const firstSelection =
+    firstService ||
+    (external[0] ? `external:${external[0][0].pid}` : '') ||
+    needsAttention[0]?.definition.id ||
+    (showLaunchable ? launchable[0]?.definition.id : '') ||
+    (firstDraft ? keyOf(firstDraft) : '');
   useEffect(() => {
-    if (!view && !draft && !externalView)
-      setSelected(
-        visible[0]?.definition.id ||
-          (external[0] ? `external:${external[0][0].pid}` : firstDraft ? keyOf(firstDraft) : ''),
-      );
-  }, [view, draft, visible, firstDraft, externalView, external]);
+    if (!projectId && !servicesLoaded) return;
+    if (!view && !draft && !externalView) setSelected(firstSelection);
+  }, [projectId, servicesLoaded, view, draft, externalView, firstSelection]);
   useEffect(() => {
     setRunChoice('latest');
     setHistory([]);
@@ -419,6 +444,11 @@ export default function ServicesPage({
     runChoice === 'latest'
       ? view?.current_run
       : history.find((r) => r.id === runChoice && r.service_id === selected);
+  function selectSavedService(id: string) {
+    setSelected(id);
+    if (services.some((service) => service.definition.id === id && isLaunchable(service)))
+      setLaunchableOpen(true);
+  }
   async function prepare(action: 'start' | 'restart' | 'force_stop', target = view) {
     if (!target) return;
     setBusy(true);
@@ -481,7 +511,7 @@ export default function ServicesPage({
           fingerprint: current.process.fingerprint,
         },
       );
-      setSelected(definition.id);
+      selectSavedService(definition.id);
       setFilter(definition.project_id);
       setQuery('');
       setHandoff(preview);
@@ -509,6 +539,7 @@ export default function ServicesPage({
       serviceVersion.current += 1;
       setExternalSetup(null);
       setSelected(saved.id);
+      if (!projectId) setLaunchableOpen(true);
       setFilter(saved.project_id);
       setServices((values) => [...values, { definition: saved, current_run: null }]);
       if (!handoffSupported) {
@@ -554,6 +585,7 @@ export default function ServicesPage({
       ]);
       setEditing(null);
       setSelected(saved.id);
+      if (!projectId) setLaunchableOpen(true);
       setFilter(saved.project_id);
       await refresh();
       if (start) await prepare('start', { definition: saved, current_run: null });
@@ -609,6 +641,63 @@ export default function ServicesPage({
       >
         <Star size={16} fill={target.is_favorite ? 'currentColor' : 'none'} />
       </button>
+    );
+  }
+  function serviceRow(service: ServiceView) {
+    const { definition, current_run } = service;
+    const state = current_run?.state;
+    const identity = managedIdentity(definition);
+    const isActive = active(state);
+    const canSwitch =
+      !isActive &&
+      externalPortConflict(
+        definition,
+        externalServiceChoices(ports, definition.project_id, portsAvailable),
+      );
+    const ActionIcon = isActive ? Square : canSwitch ? ArrowRightLeft : Play;
+    return (
+      <div
+        key={definition.id}
+        data-color={projectColor(definition.project_id)}
+        className={'service-row ' + (selected === definition.id ? 'selected' : '')}
+      >
+        <button className="service-row-select" onClick={() => setSelected(definition.id)}>
+          <span className="service-row-heading">
+            <span className="service-row-title">
+              <span className="service-identity-icon" aria-hidden="true">
+                <SquareTerminal size={15} />
+              </span>
+              <strong title={identity.title}>{identity.title}</strong>
+            </span>
+            <ServiceBadge state={state} />
+          </span>
+          <span className="service-row-meta">
+            <span className="service-project" title={identity.qualifier}>
+              {project
+                ? relativeDirectory(definition.working_directory, definition.project_id)
+                : identity.qualifier}
+            </span>
+            <PortSummary bindings={actualPorts(definition.id)} available={portsAvailable} compact />
+          </span>
+        </button>
+        <div className="service-row-actions">
+          {favoriteButton(definition.project_id)}
+          <button
+            className="text-button"
+            disabled={disabled || busy || state === 'UNKNOWN' || state === 'STOPPING'}
+            onClick={() => {
+              if (isActive) void stop(service);
+              else if (canSwitch) {
+                setSelected(definition.id);
+                setChoosingHandoff(definition.id);
+              } else void prepare('start', service);
+            }}
+          >
+            <ActionIcon size={13} />
+            {isActive ? t('停止') : canSwitch ? t('切换…') : t('启动')}
+          </button>
+        </div>
+      </div>
     );
   }
   function draftRow(value: ServiceDraft) {
@@ -685,7 +774,10 @@ export default function ServicesPage({
             aria-label={t('搜索服务')}
             placeholder={t('搜索服务、进程、端口或工作目录…')}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setLaunchableOpen(null);
+            }}
           />
         </div>
         {!project && (
@@ -748,91 +840,30 @@ export default function ServicesPage({
       )}
       <div className="services-workspace">
         <div className="service-list" role="region" aria-label={t('项目服务列表')} tabIndex={0}>
-          <div className="port-list-header">
-            <span>{t('服务配置')}</span>
-            <span>{visible.length}</span>
+          <div
+            className={projectId ? 'port-list-header' : 'port-list-header service-section-heading'}
+          >
+            <span>{projectId ? t('服务配置') : t('运行中的托管服务')}</span>
+            <span>{projectId ? visible.length : running.length}</span>
           </div>
-          {!visible.length && !pending.length && (
-            <div className="service-empty">
-              <SquareTerminal size={29} strokeWidth={1.2} />
-              <p>{!projects.length ? t('先扫描并导入一个项目') : t('暂无服务')}</p>
-              <span>{t('可添加服务并填写启动命令。')}</span>
-            </div>
-          )}
-          {visible.map((v) => (
-            <div
-              key={v.definition.id}
-              data-color={projectColor(v.definition.project_id)}
-              className={'service-row ' + (selected === v.definition.id ? 'selected' : '')}
-            >
-              <button className="service-row-select" onClick={() => setSelected(v.definition.id)}>
-                <span className="service-row-heading">
-                  <span className="service-row-title">
-                    <span className="service-identity-icon" aria-hidden="true">
-                      <SquareTerminal size={15} />
-                    </span>
-                    <strong title={managedIdentity(v.definition).title}>
-                      {managedIdentity(v.definition).title}
-                    </strong>
-                  </span>
-                  <ServiceBadge state={v.current_run?.state} />
-                </span>
-                <span className="service-row-meta">
-                  <span className="service-project" title={managedIdentity(v.definition).qualifier}>
-                    {project
-                      ? relativeDirectory(v.definition.working_directory, v.definition.project_id)
-                      : managedIdentity(v.definition).qualifier}
-                  </span>
-                  <PortSummary
-                    bindings={actualPorts(v.definition.id)}
-                    available={portsAvailable}
-                    compact
-                  />
-                </span>
-              </button>
-              <div className="service-row-actions">
-                {favoriteButton(v.definition.project_id)}
-                <button
-                  className="text-button"
-                  disabled={
-                    disabled ||
-                    busy ||
-                    v.current_run?.state === 'UNKNOWN' ||
-                    v.current_run?.state === 'STOPPING'
-                  }
-                  onClick={() =>
-                    active(v.current_run?.state)
-                      ? void stop(v)
-                      : externalPortConflict(
-                            v.definition,
-                            externalServiceChoices(ports, v.definition.project_id, portsAvailable),
-                          )
-                        ? (setSelected(v.definition.id), setChoosingHandoff(v.definition.id))
-                        : void prepare('start', v)
-                  }
-                >
-                  {active(v.current_run?.state) ? (
-                    <Square size={13} />
-                  ) : externalPortConflict(
-                      v.definition,
-                      externalServiceChoices(ports, v.definition.project_id, portsAvailable),
-                    ) ? (
-                    <ArrowRightLeft size={13} />
-                  ) : (
-                    <Play size={13} />
-                  )}
-                  {active(v.current_run?.state)
-                    ? t('停止')
-                    : externalPortConflict(
-                          v.definition,
-                          externalServiceChoices(ports, v.definition.project_id, portsAvailable),
-                        )
-                      ? t('切换…')
-                      : t('启动')}
-                </button>
+          {servicesLoaded &&
+            !fetchError &&
+            !visible.length &&
+            !pending.length &&
+            (projectId || !external.length) && (
+              <div className="service-empty">
+                <SquareTerminal size={29} strokeWidth={1.2} />
+                {!projectId && query.trim() ? (
+                  <p>{t('没有匹配的服务')}</p>
+                ) : (
+                  <>
+                    <p>{!projects.length ? t('先扫描并导入一个项目') : t('暂无服务')}</p>
+                    <span>{t('可添加服务并填写启动命令。')}</span>
+                  </>
+                )}
               </div>
-            </div>
-          ))}
+            )}
+          {(projectId ? visible : running).map(serviceRow)}
           {primaryDrafts.length > 0 && (
             <div className="port-list-header">
               <span>{t('启动建议')}</span>
@@ -903,7 +934,7 @@ export default function ServicesPage({
               <div className="service-row-actions">{favoriteButton(bindings[0].project_id)}</div>
             </div>
           ))}
-          {!external.length && (!portsAvailable || query) && (
+          {!external.length && (!portsAvailable || (query && (projectId || !visible.length))) && (
             <p className="external-empty">
               {portsAvailable
                 ? query
@@ -911,6 +942,33 @@ export default function ServicesPage({
                   : t('暂未发现外部启动的项目服务。其他监听可在端口管理查看。')
                 : t('端口状态未知，暂无法列出外部服务')}
             </p>
+          )}
+          {!projectId && needsAttention.length > 0 && (
+            <>
+              <div className="port-list-header service-section-heading">
+                <span>{t('需要关注')}</span>
+                <span>{needsAttention.length}</span>
+              </div>
+              {needsAttention.map(serviceRow)}
+            </>
+          )}
+          {!projectId && launchable.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="port-list-header service-section-heading service-disclosure"
+                aria-expanded={showLaunchable}
+                aria-controls="launchable-services"
+                onClick={() => setLaunchableOpen(!showLaunchable)}
+              >
+                <ChevronRight size={15} aria-hidden="true" />
+                <span>{t('可启动')}</span>
+                <span>{launchable.length}</span>
+              </button>
+              <div id="launchable-services" hidden={!showLaunchable}>
+                {showLaunchable && launchable.map(serviceRow)}
+              </div>
+            </>
           )}
         </div>
         <div
@@ -1154,7 +1212,7 @@ export default function ServicesPage({
                     selectService={(id) => {
                       setFilter('');
                       setQuery('');
-                      setSelected(id);
+                      selectSavedService(id);
                       showAllServices();
                     }}
                   />
@@ -1275,7 +1333,7 @@ export default function ServicesPage({
           preview={prepareHandoff}
           create={() => setNewExternalConfig(true)}
           select={(id) => {
-            setSelected(id);
+            selectSavedService(id);
             setQuery('');
             setFilter(externalSetup.process.project_id || '');
             setExternalSetup(null);

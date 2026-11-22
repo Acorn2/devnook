@@ -1526,3 +1526,19 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 
 - 正式构建 Apple Silicon 与 Intel Mac 两个 DMG，并在只读挂载中核对签名、架构、macOS 12.0 最低版本、镜像文件与 Applications 入口。两个包内的隔离 Core 均验证 FastAPI 建议和 Vite 建议互相独立；Intel 在 Apple Silicon 上通过 Rosetta 校验。完成原生窗口只读启动检查，未切换用户的运行实例。
 - 两架构的 Release workspace 各 105 项通过、5 个 fixture 忽略；前端 40 项通过，类型、格式、站点校验及 [标签源码 CI](https://github.com/Acorn2/devnook/actions/runs/44845708804) 通过。[v0.1.7](https://github.com/Acorn2/devnook/releases/tag/v0.1.7) 两份 DMG 和两份校验文件均从公开地址重新下载，并核对与本地产物 SHA-256 一致。双架构包均为 ad-hoc 签名、未公证。
+
+## 全局服务列表优先展示运行项（2026-11-22）
+
+- 已停止和未启动的配置进入默认折叠的「可启动」区。失败、阻断与身份待核验的配置继续可见。展开后可以启动或查看历史日志，停止当前选中的服务后仍可在右侧查看日志。搜索命中时自动展开，单项目列表继续显示全部服务配置。
+- `pnpm check`、`pnpm test:ui`（40 项）、`pnpm build`、`pnpm format:check` 和 `git diff --check` 通过。用真实 React 界面及隔离的 Core 接口替身验证默认折叠、键盘展开、搜索和项目筛选、历史日志切换、启动确认、启停后的归组、未知身份的操作限制，以及单项目列表。中文浅色 1280×800 与英文暗色 760×560 已回读截图，英文最小窗口的页面与列表均无横向溢出。
+- 浏览器验收已结束，临时 Web UI 已停止。未连接真实 Core 或重新打包 macOS 应用。验收截图和脚本位于忽略目录 `.tmp/launchable-services-20261122/`。
+
+## 「可启动」区本机 macOS 试用包（2026-11-22）
+
+- 使用 `CARGO_TARGET_DIR=target/latest APPLE_SIGNING_IDENTITY=- pnpm tauri build --debug --bundles app` 的固定输出目录（执行时传入绝对路径）构建 `target/latest/debug/bundle/macos/DevNook.app`。arm64 Debug 0.1.7，约 51.21 MiB，最低 macOS 12.0。通过严格签名校验、Info.plist 检查和 Mach-O 架构检查，主程序 SHA-256 为 `b6d92f23c3463d48c3697946b3a5bfdc588a9e94169afb6074d240a70fb92854`。
+- 通过 `open -n` 启动固定路径的新包。原生前台窗口已连接现有 Core，进入服务管理后实测「可启动 3」默认折叠、可展开并重新折叠，最终停在服务管理页。原 GUI、Core 与构建前观测到的 runner 的 PID、启动时间和可执行路径保持一致。现有 Debug 包仍有运行引用，两个架构的 Release 包对应公开版本，均予保留。
+
+## v0.1.8 全局服务列表发行候选（2026-11-22）
+
+- 软件包版本同步为 0.1.8。Apple Silicon 与 Intel 的 Release 应用及 DMG 通过签名、架构、macOS 12.0 最低版本、镜像完整性、只读挂载逐文件一致性及 Applications 入口检查。两架构的隔离 Core 均完成协议、空库与正常退出检查，原生窗口在 Apple Silicon 上连接现有 Core，Intel 使用 Rosetta。
+- `pnpm check`、`pnpm format:check`、`pnpm test:ui`（40 项）、Rust 格式、Apple Silicon Release workspace 和两份候选清单的站点构建 / 校验通过。候选采用 ad-hoc 签名，尚未公证。下载入口在公开资产复核后更新。

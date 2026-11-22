@@ -4099,6 +4099,28 @@ main.workbench-page {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.service-section-heading {
+  position: static;
+}
+.service-disclosure {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  text-align: start;
+  cursor: pointer;
+}
+.service-disclosure > span:last-child {
+  margin-inline-start: auto;
+}
+.service-disclosure[aria-expanded='true'] > svg {
+  transform: rotate(90deg);
+}
+.service-disclosure:hover {
+  background: var(--accent-soft);
+}
+.service-disclosure:focus-visible {
+  outline-offset: -2px;
+}
 .service-port-status .text-button {
   flex-shrink: 0;
 }
