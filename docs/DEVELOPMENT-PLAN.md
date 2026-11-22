@@ -1542,3 +1542,8 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 
 - 软件包版本同步为 0.1.8。Apple Silicon 与 Intel 的 Release 应用及 DMG 通过签名、架构、macOS 12.0 最低版本、镜像完整性、只读挂载逐文件一致性及 Applications 入口检查。两架构的隔离 Core 均完成协议、空库与正常退出检查，原生窗口在 Apple Silicon 上连接现有 Core，Intel 使用 Rosetta。
 - `pnpm check`、`pnpm format:check`、`pnpm test:ui`（40 项）、Rust 格式、Apple Silicon Release workspace 和两份候选清单的站点构建 / 校验通过。候选采用 ad-hoc 签名，尚未公证。下载入口在公开资产复核后更新。
+
+## v0.1.8 安装包发布（2026-11-22）
+
+- `v0.1.8` 标签指向已推送的 `ef4ca80c366229e8eddbc78cb375b6616d3a4519`。两架构 Release workspace 各通过 105 项测试，5 个内部 fixture 忽略。Intel 首轮使用 Python 3.14 时有一项就绪检查超时，改用系统 Python 3.9.6 后重跑整组通过，代码和测试期限保持原值。
+- GitHub Releases 已将 [v0.1.8](https://github.com/Acorn2/devnook/releases/tag/v0.1.8) 设为最新版。两份 DMG 与对应校验文件均从公开地址重新下载，与本机 SHA-256、体积和 GitHub digest 核对一致。README 与中英文官网清单同步登记公开链接。签名、体积和核验范围见 [发行记录](RELEASING.md)。
