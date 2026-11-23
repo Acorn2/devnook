@@ -26,6 +26,9 @@ const {
   serviceCliCommands,
   serviceAgentInstructions,
   serviceIsActive,
+  formatMemoryBytes,
+  formatCpuTime,
+  formatLogTimestamp,
   groupServiceDrafts,
   pendingServiceDrafts,
 } = await import(
@@ -258,4 +261,29 @@ test('AI handoff uses the saved service ID and current CLI, without shell launch
     "devnook service status 'saved-id'\ndevnook service logs 'saved-id' --limit 100\ndevnook service start 'saved-id'\ndevnook service restart 'saved-id'\ndevnook service stop 'saved-id'",
   );
   initializeLanguage('zh');
+});
+
+test('memory and CPU time formatting handles various byte and time ranges gracefully', () => {
+  assert.equal(formatMemoryBytes(undefined), '');
+  assert.equal(formatMemoryBytes(null), '');
+  assert.equal(formatMemoryBytes(0), '');
+  assert.equal(formatMemoryBytes(512 * 1024), '512.0 KB');
+  assert.equal(formatMemoryBytes(128 * 1024 * 1024), '128.0 MB');
+  assert.equal(formatMemoryBytes(2.5 * 1024 * 1024 * 1024), '2.50 GB');
+
+  assert.equal(formatCpuTime(undefined), '');
+  assert.equal(formatCpuTime(null), '');
+  assert.equal(formatCpuTime(0), '');
+  assert.equal(formatCpuTime(1500), '1.5s');
+  assert.equal(formatCpuTime(65000), '1m 5s');
+  assert.equal(formatCpuTime(125000), '2m 5s');
+});
+
+test('formatLogTimestamp formats unix seconds to readable local HH:mm:ss without touching non-timestamp lines', () => {
+  const line = '[1795187637] [system] 服务运行开始';
+  const formatted = formatLogTimestamp(line);
+  assert.match(formatted, /^\[\d{2}:\d{2}:\d{2}\] \[system\] 服务运行开始$/);
+
+  const plainLine = 'Some raw line without timestamp';
+  assert.equal(formatLogTimestamp(plainLine), plainLine);
 });

@@ -11,6 +11,14 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Acorn2/devnook/releases/latest"><img src="https://img.shields.io/github/v/release/Acorn2/devnook?color=blue&label=Release" alt="Release" /></a>
+  <img src="https://img.shields.io/badge/Platform-macOS%2012%2B-black?logo=apple" alt="Platform" />
+  <img src="https://img.shields.io/badge/Arch-Apple%20Silicon%20%7C%20Intel-teal" alt="Arch" />
+  <img src="https://img.shields.io/badge/Built%20with-Tauri%202%20%7C%20Rust%20%7C%20React%2019-orange" alt="Tech Stack" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License" /></a>
+</p>
+
+<p align="center">
   <a href="https://acorn2.github.io/devnook/">官网</a> ·
   <a href="#核心功能">能做什么</a> ·
   <a href="#实操演示">实操演示</a> ·
@@ -23,16 +31,16 @@
 
 **找项目、开服务、查端口。** DevNook 把磁盘上的代码工程、常用编辑器、启动配置和运行状态放进一个桌面工作台。你可以导入已有项目，确认启动前后端服务，集中查看日志，或从占用端口找到对应进程和目录。
 
-[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.8/DevNook_0.1.8_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.8/DevNook_0.1.8_x64.dmg) · [v0.1.8 发布说明与校验文件](https://github.com/Acorn2/devnook/releases/tag/v0.1.8) · [从源码运行](#快速开始)
+[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.9/DevNook_0.1.9_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.9/DevNook_0.1.9_x64.dmg) · [v0.1.9 发布说明与校验文件](https://github.com/Acorn2/devnook/releases/tag/v0.1.9) · [从源码运行](#快速开始)
 
 如果你同时维护几个本地工程，可以从这些任务开始：
 
-| 你想做的事                   | 在 DevNook 中怎么做                                            |
-| ---------------------------- | -------------------------------------------------------------- |
-| 找回一个项目并继续开发       | 扫描导入后，用搜索、分类或收藏找到工程，再交给常用编辑器。     |
-| 启动前端和 API，查看是否正常 | 保存启动配置，确认执行，在服务详情看就绪状态、实际端口与日志。 |
-| 排查“端口已被占用”           | 打开端口管理，查看监听进程、命令、工作目录和项目归属。         |
-| 按顺序准备一组服务           | 把已登记的服务组成启动方案，等待依赖就绪后再启动下游。         |
+| 常见开发场景与痛点             | 在 DevNook 中怎么做                                                     |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| 找回散落工程并继续开发         | 扫描导入后，用搜索、技术栈、分类或收藏定位，一键唤起常用编辑器与终端。  |
+| 启动多端服务并监视健康与资源   | 保存配置并安全启动，在详情页实时查看内存 (RSS)、CPU 耗时、实际端口与日志。 |
+| 排查“端口已被占用”或排查杂音   | 端口管理自带分类过滤，一键过滤系统无用端口，穿透查看占用进程与项目归属。 |
+| 编排有先后依赖的一组微服务     | 组成启动方案，按拓扑等待上游服务就绪后自动启动下游，支持安全回滚。       |
 
 ![DevNook 项目库：分类、收藏、技术栈、服务监听与编辑器入口](site/assets/projects-dark-zh.png)
 
@@ -64,11 +72,13 @@
 
 - 分目录的前后端可分别配置：FastAPI 支持识别约定入口里的显式 Uvicorn 启动，能确认固定端口时预填端口和 TCP 就绪检查。数据库和服务依赖仍由用户设置。
 - 启动、停止、重启已登记的服务；启动前检查端口冲突与依赖状态。
+- **高频操作直达与清晰状态**：服务卡片提供语义明确的启停微型操作按钮；服务详情页头部常驻「打开网页」、「重启」、「停止」与「编辑配置」快捷入口。
+- **实时性能指标监视**：基于 macOS 内核系统调用实时获取进程的物理内存常驻集（RSS）与 CPU 累计运行时间，在详情头部与参数中直观掌握资源开销。
 - 全局服务列表优先展示项目名，项目内优先展示服务名；同一项目的多个服务通过服务名、相对目录与实际端口区分，右侧详情保持一致。
 - 点击服务配置、启动建议或已关联外部服务旁的星标，即可收藏所属项目；同项目的星标与项目库同步。
 - 同时查看运行状态、实际监听端口、启动命令与工作目录，进程信息可按需展开。
 - 项目图标、服务标记和实际端口保持一致配色，技术栈使用彩色标签；状态保留独立颜色与文字，浅暗主题均支持。
-- 按运行记录查看 stdout / stderr。排查报错时可搜索关键字、暂停刷新，再从“更多日志操作”复制当前显示的行。
+- **可读日志与防打扰滚底**：stdout / stderr 输出采用本地化时间戳（如 `[15:23:40]`）；排查报错上滑查阅时智能保持视口位置，滚回底部自动恢复实时吸附跟随。
 - 关闭应用窗口后，本机后台继续维护已经启动的服务与日志。
 
 ![服务管理：项目名与组件目录区分服务，网页详情提供 HTTP 地址与打开浏览器按钮](site/assets/services-dark-zh.png)
@@ -92,7 +102,9 @@
 
 在端口管理中搜索端口、PID、命令或路径，查看进程命令、可执行文件、工作目录、启动时间与项目归属。项目、地址族、运行时和启动来源等筛选可以组合使用。
 
-长命令默认显示四行，可展开、收起并复制完整内容；悬停端口不会弹出整段启动命令。
+- **顶部分类分段降噪**：顶部提供 `全部` / `DevNook 托管` / `项目关联` / `系统与未关联` 快捷过滤胶囊与实时计数，一键隐藏 macOS 60+ 系统后台进程干扰，专注排查业务端口。
+- **进程详情精准穿透**：大标题直观显示所属项目名称（如 `source-desk · node`），并同步展示该进程的物理内存 (RSS)、累计 CPU 时间与完整启动参数。
+- 长命令默认显示四行，可展开、收起并复制完整内容；悬停端口不会弹出整段启动命令。
 
 ![端口排查：实际监听地址、进程命令、工作目录与项目归属](site/assets/ports-dark-zh.png)
 
@@ -139,7 +151,7 @@ CLI 与可选的 MCP 接入共用桌面的本机后台、项目库、服务配�
 
 ## 快速开始
 
-直接使用可从 [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest) 按芯片选择 Apple Silicon 或 Intel Mac DMG，打开后将 DevNook 拖入 Applications。当前安装包采用 ad-hoc 签名，尚未完成 Developer ID 签名或 Apple 公证；首次打开可能被 macOS 阻止，来源与校验说明见 [v0.1.8 发布说明](docs/releases/v0.1.8.md)。
+直接使用可从 [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest) 按芯片选择 Apple Silicon 或 Intel Mac DMG，打开后将 DevNook 拖入 Applications。当前安装包采用 ad-hoc 签名，尚未完成 Developer ID 签名或 Apple 公证；首次打开可能被 macOS 阻止，来源与校验说明见 [v0.1.9 发布说明](docs/releases/v0.1.9.md)。
 
 以下步骤用于从源码运行，目标平台为 **macOS 12+**，提供 Apple Silicon 与 Intel 两种构建。Intel 构建已通过 Apple Silicon 主机上的 Rosetta 测试；本版未重新验收原生窗口交互，Intel 和 macOS 12 真机仍需补充验证。Windows / Linux 暂不提供安装包，后续方向见下方说明。
 

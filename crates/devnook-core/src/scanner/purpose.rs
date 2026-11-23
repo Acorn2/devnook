@@ -151,15 +151,45 @@ fn node_client(pkg: &Value) -> bool {
                 .any(native_command)
         })
 }
-fn host_command(pkg: &Value, text: &str, seen: &mut HashSet<String>) -> bool {
-    let Some(words) = command_words(text) else {
-        return false;
+fn node_bin_args<'a>(pkg: &Value, words: &'a [String]) -> Option<&'a [String]> {
+    if !matches!(program(words), "node" | "nodejs") {
+        return None;
+    }
+    let entry = Path::new(words.get(1)?.as_str());
+    let entry = entry.strip_prefix(".").unwrap_or(entry);
+    let matches_entry = |target: &str| {
+        let target = Path::new(target);
+        target.strip_prefix(".").unwrap_or(target) == entry
     };
+    let bin = pkg.get("bin")?;
+    (bin.as_str().is_some_and(matches_entry)
+        || bin
+            .as_object()
+            .is_some_and(|bins| bins.values().filter_map(Value::as_str).any(matches_entry)))
+    .then_some(&words[2..])
+}
+
+fn eligible_node_command(
+    pkg: &Value,
+    text: &str,
+    allow_unclassified: bool,
+    seen: &mut HashSet<String>,
+) -> bool {
+    let Some(words) = command_words(text) else {
+        return allow_unclassified && !text.trim().is_empty() && !native_command(text);
+    };
+    if words
+        .iter()
+        .skip(1)
+        .any(|arg| matches!(arg.as_str(), "--help" | "-h" | "--version" | "-V"))
+    {
+        return false;
+    }
     let cmd = program(&words);
     let sub = words.get(1).map(String::as_str).unwrap_or("");
     let alias = if cmd == "npm" && sub == "run" {
         words.get(2)
-    } else if cmd == "run" {
+    } else if cmd == "run" || (cmd == "npm" && sub == "start") {
         words.get(1)
     } else if words.len() == 1 && pkg.get("scripts").and_then(|v| v.get(cmd)).is_some() {
         words.first()
@@ -180,7 +210,24 @@ fn host_command(pkg: &Value, text: &str, seen: &mut HashSet<String>) -> bool {
             .get("scripts")
             .and_then(|v| v.get(script))
             .and_then(Value::as_str)
-            .is_some_and(|v| host_command(pkg, v, seen));
+            .is_some_and(|v| eligible_node_command(pkg, v, allow_unclassified, seen));
+    }
+    if let Some(args) = node_bin_args(pkg, &words) {
+        let Some((subcommand, options)) = args.split_first() else {
+            return false;
+        };
+        if options.first().is_some_and(|arg| !arg.starts_with('-')) {
+            return false;
+        }
+        return match subcommand.as_str() {
+            "serve" | "server" | "web" => true,
+            // A CLI can also use workspace for local project management.
+            "workspace" => dependency(pkg, &["vue", "@vue/runtime-dom", "react-dom", "svelte"]),
+            _ => false,
+        };
+    }
+    if allow_unclassified {
+        return !native_command(text);
     }
     match cmd {
         "expo" => {
@@ -235,6 +282,7 @@ fn choose_node_script(pkg: &Value, strict: bool) -> Option<String> {
         "dev:server",
         "start:server",
         "server",
+        "workspace",
     ]
     .into_iter()
     .find(|key| {
@@ -242,9 +290,13 @@ fn choose_node_script(pkg: &Value, strict: bool) -> Option<String> {
             .and_then(|v| v.get(key))
             .and_then(Value::as_str)
             .is_some_and(|text| {
+                let allow_unclassified = !strict && *key != "workspace";
                 !text.trim().is_empty()
-                    && !native_command(text)
-                    && (!strict || host_command(pkg, text, &mut HashSet::new()))
+                    && if allow_unclassified && pkg.get("bin").is_none() {
+                        !native_command(text)
+                    } else {
+                        eligible_node_command(pkg, text, allow_unclassified, &mut HashSet::new())
+                    }
             })
     })
     .map(str::to_owned)

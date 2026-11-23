@@ -192,3 +192,15 @@ Apple Silicon 和 Intel 的 DMG 与校验文件均已从 GitHub Releases 重新�
 | Intel Mac | 16,492,427 | 5,412,792 | `a717b640a3c1360d59a4b78795d890d56c30294eecb78dc776527ee0e32b38bb` |
 
 两份 DMG 和两份校验文件均从公开地址重新下载并核对。两架构各通过 105 项 Release workspace 测试，5 个内部 fixture 忽略，另有 40 项前端测试。Intel 在 Apple Silicon 上使用 Rosetta 验收，首轮使用 Python 3.14 时就绪测试超时，切换至系统 Python 3.9.6 后全量通过。Intel 硬件及 macOS 12 真机未重新验收。
+
+## v0.1.9 进程资源监视与体验优化
+
+[v0.1.9](https://github.com/Acorn2/devnook/releases/tag/v0.1.9) 包含运行态进程资源实时监视（物理内存 RSS 与 CPU 累计时间）、高频操作交互体验优化（快捷操作胶囊与常驻详情头部控制）、运行日志本地化秒级时间戳与智能吸附滚动、端口管理分段快速降噪筛选，以及服务管理页组件解耦。中英文说明见 [v0.1.9.md](releases/v0.1.9.md)。两个安装包均为 macOS 12+、ad-hoc 签名、未公证。
+
+| 架构 | 应用字节 | DMG 字节 | SHA-256 |
+| --- | ---: | ---: | --- |
+| Apple Silicon | 15,442,571 | 4,927,400 | `cc28e4baf94d20d5a81f5972a0a290d227b9143fb24f2def6a0bcf203a56886c` |
+| Intel Mac | 16,579,579 | 5,451,133 | `b299412e87fcce3895dcd70194d83d1f76d5c542ee9fd0566d53d215464ad3cd` |
+
+两份 DMG 和两份校验文件均已完成本地 ad-hoc 签名与 `hdiutil verify` 校验。两架构各通过 108 项 Release workspace 测试，另有 42 项前端测试与 98 处静态检查通过。Intel 硬件及 macOS 12 真机未重新验收。
+

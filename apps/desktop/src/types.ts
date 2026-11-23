@@ -111,6 +111,7 @@ export interface ProcessDetail {
   start_time: string;
   elapsed: string;
   fingerprint: string;
+  start_identity?: string | null;
   bindings: PortBinding[];
   parents: { pid: number; name: string }[];
   project_id: string | null;
@@ -120,12 +121,17 @@ export interface ProcessDetail {
   can_stop: boolean;
   stop_reason: string;
   service_id: string | null;
+  memory_rss_bytes?: number | null;
+  cpu_time_ms?: number | null;
 }
 export interface StopPreview {
   token: string;
   process: ProcessDetail;
   expires_in_seconds: number;
 }
+export type ExternalStopOutcome =
+  | { status: 'exited' | 'still_running' | 'unverified' }
+  | { status: 'reappeared'; pid: number; launchd_job: string | null };
 export interface ExternalServiceConfiguration {
   process: ProcessDetail;
   draft: ServiceDraft;
@@ -220,6 +226,8 @@ export interface ServiceRun {
   stop_requested: boolean;
   stop_requested_at_ms: number | null;
   log_truncated: boolean;
+  memory_rss_bytes?: number | null;
+  cpu_time_ms?: number | null;
 }
 export interface ServiceView {
   definition: ServiceDefinition;

@@ -108,6 +108,10 @@ pub struct ServiceRun {
     pub stop_requested: bool,
     pub stop_requested_at_ms: Option<u64>,
     pub log_truncated: bool,
+    #[serde(default)]
+    pub memory_rss_bytes: Option<u64>,
+    #[serde(default)]
+    pub cpu_time_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

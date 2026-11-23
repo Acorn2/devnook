@@ -311,6 +311,9 @@ pub fn inspect(pid: u32) -> Result<ProcessDetail, String> {
         .and_then(|p| Path::new(p).file_name())
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|| fields[10].into());
+    let (memory_rss_bytes, cpu_time_ms) = task_metrics(pid)
+        .map(|(mem, cpu)| (Some(mem), Some(cpu)))
+        .unwrap_or((None, None));
     Ok(ProcessDetail {
         pid,
         ppid,
@@ -333,12 +336,70 @@ pub fn inspect(pid: u32) -> Result<ProcessDetail, String> {
         can_stop: false,
         stop_reason: "尚未确认项目归属".into(),
         service_id: None,
+        memory_rss_bytes,
+        cpu_time_ms,
     })
 }
 
 #[cfg(target_os = "macos")]
 pub fn start_identity(pid: u32) -> Option<String> {
     identity(pid).map(|p| p.start)
+}
+
+#[cfg(target_os = "macos")]
+pub fn task_metrics(pid: u32) -> Option<(u64, u64)> {
+    if pid == 0 || pid > i32::MAX as u32 {
+        return None;
+    }
+    let mut task_info = std::mem::MaybeUninit::<libc::proc_taskinfo>::zeroed();
+    let size = std::mem::size_of::<libc::proc_taskinfo>();
+    let read = unsafe {
+        libc::proc_pidinfo(
+            pid as i32,
+            libc::PROC_PIDTASKINFO,
+            0,
+            task_info.as_mut_ptr().cast(),
+            size as i32,
+        )
+    };
+    if read != size as i32 {
+        return None;
+    }
+    let task_info = unsafe { task_info.assume_init() };
+    let cpu_time_ms = (task_info.pti_total_user + task_info.pti_total_system) / 1_000_000;
+    Some((task_info.pti_resident_size, cpu_time_ms))
+}
+
+#[cfg(target_os = "macos")]
+pub fn group_task_metrics(pgid: u32) -> (Option<u64>, Option<u64>) {
+    if let Ok(members) = group_members(pgid) {
+        if !members.is_empty() {
+            let mut total_mem = 0u64;
+            let mut total_cpu = 0u64;
+            let mut found = false;
+            for pid in members {
+                if let Some((mem, cpu)) = task_metrics(pid) {
+                    total_mem = total_mem.saturating_add(mem);
+                    total_cpu = total_cpu.saturating_add(cpu);
+                    found = true;
+                }
+            }
+            if found {
+                return (Some(total_mem), Some(total_cpu));
+            }
+        }
+    }
+    (None, None)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn task_metrics(_pid: u32) -> Option<(u64, u64)> {
+    None
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn group_task_metrics(_pgid: u32) -> (Option<u64>, Option<u64>) {
+    (None, None)
 }
 
 #[derive(Debug, Clone)]
@@ -483,4 +544,19 @@ pub fn stop_eligibility(detail: &ProcessDetail, protected: &HashSet<u32>) -> Res
         return Err("请先确认进程所属项目；未知进程只读".into());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_task_metrics_current_process() {
+        let pid = std::process::id();
+        let metrics = task_metrics(pid);
+        assert!(metrics.is_some(), "当前进程的 task_metrics 应该成功获取");
+        let (rss, _cpu) = metrics.unwrap();
+        assert!(rss > 0, "当前进程物理内存 RSS 应该大于 0 字节");
+    }
 }

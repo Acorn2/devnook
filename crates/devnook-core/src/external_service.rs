@@ -1,6 +1,7 @@
-//! Explicit external-to-managed replacement. Saving a draft never adopts a PID.
+//! External service configuration, stop observation, and confirmed handoff.
 use crate::{
-    model::{now, ProcessDetail, ProcessKind, Project, StopPreview},
+    ipc::CoreClient,
+    model::{now, PortBinding, ProcessDetail, ProcessKind, Project, StopPreview},
     process,
     service_drafts::ServiceDraft,
     service_model::*,
@@ -120,6 +121,144 @@ fn exited(previous: &ProcessDetail) -> Result<bool, String> {
         Ok(false)
     } else {
         Err("无法核验旧进程是否退出，已中止切换".into())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum ExternalStopOutcome {
+    Exited,
+    Reappeared {
+        pid: u32,
+        launchd_job: Option<String>,
+    },
+    StillRunning,
+    Unverified,
+}
+
+fn was_listening(previous: &ProcessDetail, binding: &PortBinding) -> bool {
+    previous.bindings.iter().any(|old| {
+        old.process_kind == ProcessKind::Service
+            && old.address == binding.address
+            && old.family == binding.family
+            && old.port == binding.port
+    })
+}
+
+fn started_at_ms(identity: &process::ProcessIdentity) -> Option<u64> {
+    let (seconds, micros) = identity.start.split_once('.')?;
+    let seconds = seconds.parse::<u64>().ok()?;
+    let micros = micros.parse::<u64>().ok()?;
+    seconds.checked_mul(1_000)?.checked_add(micros / 1_000)
+}
+
+fn launchd_job(pid: u32) -> Option<String> {
+    // PPID 1 can also mean a process was orphaned. Require launchd's job/PID mapping.
+    let jobs = process::command("/bin/launchctl", &["list"]).ok()?;
+    jobs.lines().find_map(|line| {
+        let mut fields = line.split_whitespace();
+        let job_pid = fields.next()?.parse::<u32>().ok()?;
+        fields.next()?; // Last exit status.
+        let label = fields.next()?;
+        (job_pid == pid).then(|| label.to_owned())
+    })
+}
+
+impl CoreClient {
+    /// Local desktop observation after a successful confirm_stop. Poll outside
+    /// the daemon's authorization lock, using its existing read-only inspection.
+    pub fn observe_external_service_stop(
+        &self,
+        previous: &ProcessDetail,
+        requested_at_ms: u64,
+    ) -> ExternalStopOutcome {
+        if previous.pid == 0 || previous.pid > i32::MAX as u32 || previous.start_identity.is_none()
+        {
+            return ExternalStopOutcome::Unverified;
+        }
+        // launchd may throttle a rapid restart for 10 seconds.
+        let deadline = Instant::now() + Duration::from_secs(12);
+        let mut old_exited = false;
+        loop {
+            if !old_exited {
+                match exited(previous) {
+                    Ok(exited) => old_exited = exited,
+                    Err(_) => return ExternalStopOutcome::Unverified,
+                }
+            }
+            if old_exited {
+                if let Some(outcome) = self.reappeared_service(previous, requested_at_ms) {
+                    return outcome;
+                }
+            }
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return if old_exited {
+                    ExternalStopOutcome::Exited
+                } else if process::identity(previous.pid).is_some_and(|current| {
+                    current.alive && Some(&current.start) == previous.start_identity.as_ref()
+                }) {
+                    ExternalStopOutcome::StillRunning
+                } else {
+                    ExternalStopOutcome::Unverified
+                };
+            }
+            std::thread::sleep(remaining.min(Duration::from_secs(1)));
+        }
+    }
+
+    fn reappeared_service(
+        &self,
+        previous: &ProcessDetail,
+        requested_at_ms: u64,
+    ) -> Option<ExternalStopOutcome> {
+        if previous.project_id.is_none()
+            || previous.cwd.is_none()
+            || previous.executable.is_none()
+            || previous.command.is_empty()
+            || previous.command.contains("[REDACTED")
+        {
+            return None;
+        }
+        let candidates: BTreeSet<_> = process::list_ports()
+            .ok()?
+            .into_iter()
+            .filter(|binding| binding.pid != previous.pid && was_listening(previous, binding))
+            .map(|binding| binding.pid)
+            .collect();
+        candidates.into_iter().find_map(|pid| {
+            let identity = process::identity(pid)?;
+            if !identity.alive
+                || identity.uid != previous.uid
+                || started_at_ms(&identity)? < requested_at_ms
+            {
+                return None;
+            }
+            let current = self.inspect(pid).ok()?;
+            if current.start_identity.as_ref() != Some(&identity.start)
+                || current.uid != previous.uid
+                || current.source != "OBSERVED"
+                || current.project_id != previous.project_id
+                || current.cwd != previous.cwd
+                || current.executable != previous.executable
+                || current.command != previous.command
+                || !current.bindings.iter().any(|binding| {
+                    binding.source == "OBSERVED"
+                        && binding.process_kind == ProcessKind::Service
+                        && was_listening(previous, binding)
+                })
+            {
+                return None;
+            }
+            let launchd_job = if current.ppid == 1 {
+                launchd_job(pid)
+            } else {
+                None
+            };
+            process::identity(pid)
+                .is_some_and(|latest| latest.alive && latest.start == identity.start)
+                .then_some(ExternalStopOutcome::Reappeared { pid, launchd_job })
+        })
     }
 }
 

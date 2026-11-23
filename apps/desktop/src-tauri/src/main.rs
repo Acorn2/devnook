@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use devnook_core::browser::{BrowserAddress, BrowserShortcut, BrowserTarget};
-use devnook_core::external_service::{ExternalServiceConfiguration, ExternalServiceHandoffPreview};
+use devnook_core::external_service::{
+    ExternalServiceConfiguration, ExternalServiceHandoffPreview, ExternalStopOutcome,
+};
 use devnook_core::{access::*, ipc::CoreClient as Core, model::*, service_model::*, workspace::*};
 use std::sync::Arc;
 use tauri::{Manager, State};
@@ -139,6 +141,17 @@ async fn confirm_stop(
     confirmed_pid: u32,
 ) -> Result<(), String> {
     run(core, move |c| c.confirm_stop(&token, confirmed_pid)).await
+}
+#[tauri::command]
+async fn observe_external_service_stop(
+    core: State<'_, Arc<Core>>,
+    previous: ProcessDetail,
+    requested_at_ms: u64,
+) -> Result<ExternalStopOutcome, String> {
+    run(core, move |c| {
+        Ok(c.observe_external_service_stop(&previous, requested_at_ms))
+    })
+    .await
 }
 #[tauri::command]
 async fn open_project(
@@ -444,6 +457,7 @@ fn main() {
             assign_process,
             prepare_stop,
             confirm_stop,
+            observe_external_service_stop,
             open_project,
             service_browser_addresses,
             tray_browser_shortcuts,

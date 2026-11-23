@@ -4,11 +4,11 @@ import {
   Activity,
   ArrowRightLeft,
   ArrowLeft,
+  Clock,
   Code2,
-  Check,
   ChevronRight,
   CircleAlert,
-  LoaderCircle,
+  Cpu,
   Pencil,
   Play,
   Plus,
@@ -19,10 +19,11 @@ import {
   SquareTerminal,
   Star,
   Trash2,
-  X,
 } from 'lucide-react';
 import { call } from './api';
 import RunLogPanel from './RunLogPanel';
+import ServiceEditor from './ServiceEditor';
+import ActionConfirmation from './ServiceConfirmation';
 import { Modal } from './components';
 import { projectColor } from './ColorLabels';
 import ExternalServiceConfirmation from './ExternalServiceConfirmation';
@@ -39,6 +40,8 @@ import {
   relativeServiceDirectory,
   serviceIsActive,
   serviceStateLabel,
+  formatCpuTime,
+  formatMemoryBytes,
   externalServiceChoices,
   externalPortConflict,
   groupServiceDrafts,
@@ -57,13 +60,14 @@ import type {
   PortBinding,
   Project,
   ServiceDraft,
-  ReadinessKind,
   ServiceActionPreview,
   ServiceDefinition,
   ServiceRun,
   ServiceState,
   ServiceView,
   StopPreview,
+  ProcessDetail,
+  ExternalStopOutcome,
   ExternalServiceConfiguration,
   ExternalServiceHandoffPreview,
 } from './types';
@@ -387,6 +391,7 @@ export default function ServicesPage({
   const firstDraft = primaryDrafts[0] ?? otherDrafts[0];
   const keyOf = (draft: ServiceDraft) => 'draft:' + draft.definition.working_directory;
   const view = visible.find((v) => v.definition.id === selected);
+  const runFailed = view?.current_run?.state === 'CRASHED';
   const viewExternalChoices = view
     ? externalServiceChoices(ports, view.definition.project_id, portsAvailable)
     : [];
@@ -493,6 +498,38 @@ export default function ServicesPage({
       setBusy(false);
     }
   }
+  async function observeExternalStop(previous: ProcessDetail, requestedAtMs: number) {
+    const outcome = await call<ExternalStopOutcome>('observe_external_service_stop', {
+      previous,
+      requestedAtMs,
+    }).catch(() => ({ status: 'unverified' as const }));
+    switch (outcome.status) {
+      case 'reappeared':
+        notify(
+          outcome.launchd_job
+            ? t('原进程（PID {{0}}）已退出。macOS 后台任务 {{1}} 已启动新进程（PID {{2}}）。', [
+                previous.pid,
+                outcome.launchd_job,
+                outcome.pid,
+              ])
+            : t('原进程（PID {{0}}）已退出。同一服务的新进程（PID {{1}}）正在监听原地址。', [
+                previous.pid,
+                outcome.pid,
+              ]),
+        );
+        break;
+      case 'exited':
+        notify(t('原进程（PID {{0}}）已退出。', [previous.pid]));
+        break;
+      case 'still_running':
+        notify(t('已发送停止信号。原进程（PID {{0}}）在观察结束时仍在运行。', [previous.pid]));
+        break;
+      case 'unverified':
+        notify(t('已发送停止信号，暂时无法核实进程（PID {{0}}）是否退出。', [previous.pid]));
+        break;
+    }
+    await refreshPorts();
+  }
   async function prepareHandoff(definition: ServiceDefinition, pid: number) {
     setBusy(true);
     try {
@@ -594,18 +631,6 @@ export default function ServicesPage({
       setBusy(false);
     }
   }
-  async function startDraft(value: ServiceDraft) {
-    setSelected(keyOf(value));
-    if (!value.command) return;
-    setBusy(true);
-    try {
-      await save(value.definition, {}, true);
-    } catch (e) {
-      report(e);
-    } finally {
-      setBusy(false);
-    }
-  }
   const relativeDirectory = (directory: string, id: string) =>
     relativeServiceDirectory(
       directory,
@@ -654,7 +679,6 @@ export default function ServicesPage({
         definition,
         externalServiceChoices(ports, definition.project_id, portsAvailable),
       );
-    const ActionIcon = isActive ? Square : canSwitch ? ArrowRightLeft : Play;
     return (
       <div
         key={definition.id}
@@ -683,8 +707,9 @@ export default function ServicesPage({
         <div className="service-row-actions">
           {favoriteButton(definition.project_id)}
           <button
-            className="text-button"
+            className={`service-card-action-btn ${isActive ? 'stop' : canSwitch ? 'switch' : 'start'}`}
             disabled={disabled || busy || state === 'UNKNOWN' || state === 'STOPPING'}
+            title={isActive ? t('停止服务') : canSwitch ? t('切换为托管…') : t('启动服务')}
             onClick={() => {
               if (isActive) void stop(service);
               else if (canSwitch) {
@@ -693,8 +718,14 @@ export default function ServicesPage({
               } else void prepare('start', service);
             }}
           >
-            <ActionIcon size={13} />
-            {isActive ? t('停止') : canSwitch ? t('切换…') : t('启动')}
+            {isActive ? (
+              <Square size={10} fill="currentColor" />
+            ) : canSwitch ? (
+              <ArrowRightLeft size={11} />
+            ) : (
+              <Play size={10} fill="currentColor" />
+            )}
+            <span>{isActive ? t('停止') : canSwitch ? t('切换…') : t('启动')}</span>
           </button>
         </div>
       </div>
@@ -723,10 +754,10 @@ export default function ServicesPage({
           <button
             className="text-button"
             disabled={disabled || busy}
-            onClick={() => void startDraft(value)}
+            onClick={() => setSelected(keyOf(value))}
           >
-            <Play size={13} />
-            {value.command ? t('启动…') : t('填写命令')}
+            <Pencil size={13} />
+            {value.command ? t('核对命令') : t('填写命令')}
           </button>
         </div>
       </div>
@@ -996,7 +1027,15 @@ export default function ServicesPage({
             <div className="draft-service">
               <h2>{managedIdentity(draft.definition).title}</h2>
               <p className="field-hint">
-                {t('配置启动方式')} · {t(draft.source)}
+                {draft.command
+                  ? t('启动命令由 DevNook 自动识别，可按项目实际用法修改。')
+                  : t('可填写平时在此目录运行的启动命令。')}
+                {draft.command && (
+                  <>
+                    <br />
+                    {t(draft.source)}
+                  </>
+                )}
               </p>
               <ServiceEditor
                 key={keyOf(draft)}
@@ -1029,29 +1068,37 @@ export default function ServicesPage({
                   <div className="service-detail-title">
                     <h2>{managedIdentity(view.definition).title}</h2>
                     <ServiceBadge state={view.current_run?.state} />
+                    {view.current_run?.memory_rss_bytes ? (
+                      <span className="resource-chip" title={t('物理内存')}>
+                        <Cpu size={12} />
+                        {formatMemoryBytes(view.current_run.memory_rss_bytes)}
+                      </span>
+                    ) : null}
+                    {view.current_run?.cpu_time_ms ? (
+                      <span className="resource-chip" title={t('CPU 耗时')}>
+                        <Clock size={12} />
+                        {formatCpuTime(view.current_run.cpu_time_ms)}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="service-actions">
                     {active(view.current_run?.state) && <ServiceBrowser browser={managedBrowser} />}
-                    {!active(view.current_run?.state) && (
-                      <button
-                        className="button primary small"
-                        disabled={disabled || busy || active(view.current_run?.state)}
-                        onClick={() =>
-                          viewExternalConflict
-                            ? setChoosingHandoff(view.definition.id)
-                            : void prepare('start')
-                        }
-                      >
-                        {viewExternalConflict ? <ArrowRightLeft size={15} /> : <Play size={15} />}
-                        {viewExternalConflict ? t('切换为托管…') : t('启动')}
-                      </button>
-                    )}
-                    <ServiceOptions label={t('更多服务操作')}>
-                      <BrowserMenuActions browser={managedBrowser} />
-                      <hr />
-                      {active(view.current_run?.state) && (
+                    {active(view.current_run?.state) ? (
+                      <>
                         <button
-                          className="text-button"
+                          type="button"
+                          className="button secondary small"
+                          title={t('重启服务')}
+                          disabled={disabled || busy || view.current_run?.state === 'UNKNOWN'}
+                          onClick={() => void prepare('restart')}
+                        >
+                          <RotateCw size={13} />
+                          {t('重启')}
+                        </button>
+                        <button
+                          type="button"
+                          className="button danger small"
+                          title={t('停止服务')}
                           disabled={
                             disabled ||
                             busy ||
@@ -1071,25 +1118,62 @@ export default function ServicesPage({
                             }
                           }}
                         >
-                          <Square size={14} />
+                          <Square size={11} fill="currentColor" />
                           {t('停止')}
                         </button>
-                      )}
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="button primary small"
+                          disabled={disabled || busy || active(view.current_run?.state)}
+                          onClick={() =>
+                            viewExternalConflict
+                              ? setChoosingHandoff(view.definition.id)
+                              : void prepare('start')
+                          }
+                        >
+                          {viewExternalConflict ? (
+                            <ArrowRightLeft size={14} />
+                          ) : (
+                            <Play size={14} fill="currentColor" />
+                          )}
+                          {viewExternalConflict ? t('切换为托管…') : t('启动')}
+                        </button>
+                        <button
+                          type="button"
+                          className="button secondary small"
+                          title={t('编辑配置')}
+                          disabled={busy}
+                          onClick={() => setEditing(view.definition)}
+                        >
+                          <Pencil size={13} />
+                          {t('编辑')}
+                        </button>
+                      </>
+                    )}
+                    <ServiceOptions label={t('更多服务操作')}>
+                      <BrowserMenuActions browser={managedBrowser} />
+                      <hr />
                       {active(view.current_run?.state) && (
                         <button
                           className="text-button"
-                          disabled={disabled || busy || view.current_run?.state === 'UNKNOWN'}
-                          onClick={() => void prepare('restart')}
+                          disabled={
+                            disabled ||
+                            busy ||
+                            (!runFailed && view.current_run?.state !== 'STOPPING')
+                          }
+                          onClick={() => void prepare('force_stop')}
                         >
-                          <RotateCw size={15} />
-                          {t('重启')}
+                          <CircleAlert size={14} />
+                          {t('强制停止…')}
                         </button>
                       )}
-
-                      {!active(view.current_run?.state) && (
+                      {!active(view.current_run?.state) && viewExternalChoices.length > 0 && (
                         <button
                           className="text-button"
-                          disabled={disabled || busy || !viewExternalChoices.length}
+                          disabled={disabled || busy}
                           onClick={() => setChoosingHandoff(view.definition.id)}
                         >
                           <ArrowRightLeft size={14} />
@@ -1112,7 +1196,7 @@ export default function ServicesPage({
                         disabled={busy || active(view.current_run?.state)}
                         onClick={() => setEditing(view.definition)}
                       >
-                        <Pencil size={16} />
+                        <Pencil size={14} />
                         {t('编辑服务配置')}
                       </button>
                       <button
@@ -1121,7 +1205,7 @@ export default function ServicesPage({
                         disabled={busy || active(view.current_run?.state)}
                         onClick={() => setArchive(view.definition)}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                         {t('移除服务配置')}
                       </button>
                     </ServiceOptions>
@@ -1194,10 +1278,27 @@ export default function ServicesPage({
                       {t('进程存活或“已就绪”不一定代表已监听 TCP 端口。')}
                     </p>
                   )}
-                {view.current_run?.error && (
-                  <div className="service-warning" role="status">
-                    <CircleAlert size={16} />
-                    <span>{t(view.current_run.error)}</span>
+                {(view.current_run?.error || runFailed) && (
+                  <div className="service-warning">
+                    <CircleAlert size={16} aria-hidden="true" />
+                    <div>
+                      <div role="status">
+                        {view.current_run?.error && <div>{t(view.current_run.error)}</div>}
+                        {runFailed && (
+                          <div>{t('可先查看运行日志，再核对启动命令和工作目录。')}</div>
+                        )}
+                      </div>
+                      {runFailed && (
+                        <button
+                          className="text-button"
+                          disabled={disabled || busy}
+                          onClick={() => setEditing(view.definition)}
+                        >
+                          <Pencil size={13} />
+                          {t('修改启动命令')}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
                 {!active(view.current_run?.state) && (
@@ -1246,6 +1347,18 @@ export default function ServicesPage({
                         {view.current_run?.pid || '—'} / {view.current_run?.pgid || '—'}
                       </dd>
                     </div>
+                    {view.current_run?.memory_rss_bytes ? (
+                      <div>
+                        <dt>{t('物理内存')}</dt>
+                        <dd>{formatMemoryBytes(view.current_run.memory_rss_bytes)}</dd>
+                      </div>
+                    ) : null}
+                    {view.current_run?.cpu_time_ms ? (
+                      <div>
+                        <dt>{t('CPU 耗时')}</dt>
+                        <dd>{formatCpuTime(view.current_run.cpu_time_ms)}</dd>
+                      </div>
+                    ) : null}
                     <div>
                       <dt>{t('预期端口')}</dt>
                       <dd>{view.definition.expected_ports.join(', ') || t('未指定')}</dd>
@@ -1370,12 +1483,18 @@ export default function ServicesPage({
           close={() => setExternalStop(null)}
           confirm={async () => {
             setBusy(true);
+            const requestedAtMs = Date.now();
             try {
               await call('confirm_stop', {
                 token: externalStop.token,
                 confirmedPid: externalStop.process.pid,
               });
-              notify(t('已发送正常停止信号，请核对退出结果；不会自动强杀'));
+              notify(
+                t('已发送停止信号，正在核对进程（PID {{0}}）的退出情况。', [
+                  externalStop.process.pid,
+                ]),
+              );
+              void observeExternalStop(externalStop.process, requestedAtMs);
             } catch (e) {
               report(e);
             } finally {
@@ -1513,577 +1632,5 @@ export default function ServicesPage({
         </Modal>
       )}
     </section>
-  );
-}
-
-function ActionConfirmation({
-  preview,
-  close,
-  confirm,
-}: {
-  preview: ServiceActionPreview;
-  close: () => void;
-  confirm: () => Promise<void>;
-}) {
-  const [pid, setPid] = useState('');
-  const [remaining, setRemaining] = useState(preview.expires_in_seconds);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const timer = setInterval(() => setRemaining((v) => Math.max(0, v - 1)), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  const force = preview.action === 'force_stop';
-  const action = force ? t('强制停止') : preview.action === 'restart' ? t('重启') : t('启动');
-  return (
-    <Modal
-      title={t('确认') + action + ' ' + preview.service.name}
-      subtitle={
-        force
-          ? t('SIGKILL 会立即中断托管进程组，请再次核对 PID 与归属。')
-          : t('确认后执行以下命令。')
-      }
-      className="service-confirm-dialog"
-      close={close}
-    >
-      <div className="modal-body form-stack">
-        <div className="service-command">
-          <code>{preview.command}</code>
-          <span>{preview.service.working_directory}</span>
-        </div>
-        <details className="service-advanced">
-          <summary>{t('执行详情')}</summary>
-          <div>
-            <span className="field-label">{t('环境变量差异')}</span>
-            <div className="environment-preview">
-              {Object.entries(preview.service.environment).map(([k, v]) => (
-                <code key={k}>
-                  {k}={v}
-                </code>
-              ))}
-              {preview.service.secret_keys.map((k) => (
-                <code key={k}>
-                  {k}
-                  {t('=[Keychain · 值不显示]')}
-                </code>
-              ))}
-              {!preview.environment_keys.length && (
-                <span>{t('无额外环境变量，仅继承必要的用户与工具路径。')}</span>
-              )}
-            </div>
-          </div>
-          <p className="field-hint">
-            {t('预期端口：')}
-            {preview.service.expected_ports.join(', ') || t('未指定')} ·{' '}
-            {preview.service.readiness.kind} {t('就绪检测 · 超时')}{' '}
-            {preview.service.readiness.timeout_seconds} {t('秒')}
-            <br />
-            {preview.action === 'restart'
-              ? t('重启会先正常停止原进程组；原进程不退出时会阻止新实例启动。')
-              : t('端口冲突会阻止执行，不会自动停止其他进程。')}
-            <br />
-            {t('确认剩余')}
-            {remaining} {t('秒。')}
-          </p>
-        </details>
-        <span className="field-hint">
-          {t('确认剩余')}
-          {remaining} {t('秒。')}
-        </span>
-        {force && (
-          <label>
-            {t('输入托管进程组 ID')}
-            {preview.run?.pgid} {t('确认')}
-            <input
-              autoComplete="off"
-              inputMode="numeric"
-              value={pid}
-              onChange={(e) => setPid(e.target.value)}
-            />
-          </label>
-        )}
-      </div>
-      <div className="modal-actions">
-        <button className="button secondary" onClick={close}>
-          {t('取消')}
-        </button>
-        <button
-          className={'button ' + (force ? 'danger' : 'primary')}
-          disabled={busy || !remaining || (force && pid !== String(preview.run?.pgid))}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await confirm();
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? <LoaderCircle size={15} className="spin" /> : <Check size={15} />}
-          {t('确认')}
-          {action}
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-function ServiceEditor({
-  initial,
-  services,
-  projects,
-  close,
-  saved,
-  inline = false,
-  projectLocked = false,
-  title,
-  description,
-}: {
-  title?: string;
-  description?: string;
-  projectLocked?: boolean;
-  inline?: boolean;
-  initial: ServiceDefinition;
-  services: ServiceView[];
-  projects: Project[];
-  close: () => void;
-  saved: (definition: ServiceDefinition, secrets: Record<string, string>) => Promise<void>;
-}) {
-  const [edit, setEdit] = useState(initial);
-  const [command, setCommand] = useState(
-    !initial.executable
-      ? ''
-      : initial.shell_mode
-        ? initial.executable
-        : [initial.executable, ...initial.args]
-            .map((word) =>
-              /^[\w./:@%+=,-]+$/.test(word) ? word : "'" + word.replaceAll("'", "'\\''") + "'",
-            )
-            .join(' '),
-  );
-  const [ports, setPorts] = useState(initial.expected_ports.join(', '));
-  const [env, setEnv] = useState(
-    Object.entries(initial.environment)
-      .map(([k, v]) => k + '=' + v)
-      .join('\n'),
-  );
-  const [secrets, setSecrets] = useState(initial.secret_keys.map((key) => ({ key, value: '' })));
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const form = (
-    <form
-      onInvalidCapture={(event) => {
-        const details = (event.target as HTMLElement).closest('details');
-        if (details) details.open = true;
-      }}
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setError('');
-        try {
-          const environment: Record<string, string> = {};
-          for (const line of env.split('\n').filter((l) => l.trim())) {
-            const split = line.indexOf('=');
-            if (split < 1) throw new Error(t('环境变量格式应为 KEY=value，每行一项'));
-            const key = line.slice(0, split).trim();
-            if (Object.hasOwn(environment, key)) throw new Error(t('环境变量名称重复'));
-            environment[key] = line.slice(split + 1);
-          }
-          const expected_ports = ports
-            .split(/[,，\s]+/)
-            .filter(Boolean)
-            .map((v) => {
-              if (!/^\d+$/.test(v) || Number(v) < 1 || Number(v) > 65535)
-                throw new Error(t('端口应为 1–65535 的整数'));
-              return Number(v);
-            });
-          const secret_values: Record<string, string> = {};
-          for (const row of secrets) {
-            if (!row.key.trim()) throw new Error(t('敏感变量名称不能为空'));
-            if (row.value) secret_values[row.key.trim()] = row.value;
-          }
-          const parsed = edit.shell_mode
-            ? { executable: command, args: [] }
-            : await call<{ executable: string; args: string[] }>('parse_service_command', {
-                command,
-              });
-          await saved(
-            {
-              ...edit,
-              ...parsed,
-              environment,
-              secret_keys: secrets.map((v) => v.key.trim()),
-              expected_ports,
-            },
-            secret_values,
-          );
-        } catch (e) {
-          setError(message(e));
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <div className="modal-body form-stack service-editor">
-        {error && (
-          <div className="error-banner" role="alert">
-            {t(error)}
-          </div>
-        )}
-        <label>
-          {t('服务名称')}
-          <input
-            required
-            maxLength={160}
-            placeholder={t('如：frontend、api、worker')}
-            value={edit.name}
-            onChange={(e) => setEdit({ ...edit, name: e.target.value })}
-          />
-        </label>
-        <label>
-          {t('启动命令')}
-          <input
-            aria-label={t('启动命令')}
-            required
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={t('如：pnpm dev、python3 app.py')}
-            value={command}
-            onChange={(e) => setCommand(e.target.value)}
-          />
-        </label>
-        <p className="field-hint command-directory">
-          {t('运行目录：')}
-          {edit.working_directory}
-        </p>
-        <details className="service-advanced">
-          <summary>{t('高级设置')}</summary>
-          <div className="form-stack">
-            <div className="form-row">
-              <div className="form-field">
-                <label htmlFor="service-project">{t('所属项目')}</label>
-                <Select
-                  id="service-project"
-                  aria-label={t('所属项目')}
-                  value={edit.project_id}
-                  disabled={inline || projectLocked || !!initial.id}
-                  required
-                  placeholder={t('选择所属项目')}
-                  options={projects.map((project) => ({ value: project.id, label: project.name }))}
-                  onValueChange={(projectId) => {
-                    const p = projects.find((p) => p.id === projectId);
-                    setEdit({
-                      ...edit,
-                      project_id: projectId,
-                      working_directory: p?.canonical_path || '',
-                    });
-                  }}
-                />
-              </div>
-            </div>
-            <div className="form-row">
-              <label>
-                {t('运行类型')}
-                <Select
-                  aria-label={t('运行类型')}
-                  value={edit.runtime_type}
-                  onValueChange={(runtime_type) => setEdit({ ...edit, runtime_type })}
-                  options={[
-                    { value: 'NODE', label: 'Node.js' },
-                    { value: 'PYTHON', label: 'Python' },
-                    { value: 'JAVA', label: 'Java / Maven / Gradle' },
-                    { value: 'OTHER', label: t('其他命令') },
-                  ]}
-                />
-              </label>
-              <label>
-                {t('预期端口')}
-                <input
-                  placeholder={t('如：5173, 8080')}
-                  value={ports}
-                  onChange={(e) => setPorts(e.target.value)}
-                />
-              </label>
-            </div>
-            <fieldset className="dependency-picker">
-              <legend>{t('服务依赖 · 全部 READY 后才能启动')}</legend>
-              {services
-                .filter((s) => s.definition.id !== edit.id)
-                .map(({ definition: d }) => (
-                  <label className="checkbox-label" key={d.id}>
-                    <input
-                      type="checkbox"
-                      checked={edit.dependencies.includes(d.id)}
-                      onChange={(e) =>
-                        setEdit({
-                          ...edit,
-                          dependencies: e.target.checked
-                            ? [...edit.dependencies, d.id]
-                            : edit.dependencies.filter((id) => id !== d.id),
-                        })
-                      }
-                    />
-                    {d.name}
-                  </label>
-                ))}
-              {services.filter((s) => s.definition.id !== edit.id).length === 0 && (
-                <p className="muted">{t('添加其他服务后可设置依赖。')}</p>
-              )}
-            </fieldset>
-            <label>
-              {t('工作目录')}
-              <input
-                required
-                value={edit.working_directory}
-                onChange={(e) => setEdit({ ...edit, working_directory: e.target.value })}
-              />
-            </label>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={edit.shell_mode}
-                onChange={(e) => setEdit({ ...edit, shell_mode: e.target.checked })}
-              />
-              {t('显式使用 Shell Mode（/bin/zsh -lc）')}
-            </label>
-            <div className="editor-divider">
-              <ShieldCheck size={15} />
-              {t('环境变量 · 敏感值进入 Keychain，不保存到数据库或日志')}
-            </div>
-            <label>
-              {t('普通环境变量（每行 KEY=value）')}
-              <textarea
-                rows={3}
-                placeholder={'NODE_ENV=development\nSPRING_PROFILES_ACTIVE=dev'}
-                value={env}
-                onChange={(e) => setEnv(e.target.value)}
-              />
-            </label>
-            <div className="secret-heading">
-              <span>{t('Keychain 敏感环境变量')}</span>
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => setSecrets([...secrets, { key: '', value: '' }])}
-              >
-                <Plus size={13} />
-                {t('添加变量')}
-              </button>
-            </div>
-            {secrets.map((row, i) => (
-              <div className="secret-row" key={i}>
-                <input
-                  aria-label={t('敏感变量名称 ') + (i + 1)}
-                  placeholder="API_TOKEN"
-                  autoComplete="off"
-                  value={row.key}
-                  onChange={(e) =>
-                    setSecrets(secrets.map((v, j) => (i === j ? { ...v, key: e.target.value } : v)))
-                  }
-                />
-                <input
-                  type="password"
-                  aria-label={t('敏感变量值 ') + (i + 1)}
-                  autoComplete="new-password"
-                  placeholder={
-                    initial.secret_keys.includes(row.key)
-                      ? t('留空保留已有 Keychain 值')
-                      : t('输入要存入 Keychain 的值')
-                  }
-                  value={row.value}
-                  onChange={(e) =>
-                    setSecrets(
-                      secrets.map((v, j) => (i === j ? { ...v, value: e.target.value } : v)),
-                    )
-                  }
-                />
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={t('移除敏感变量 ') + (i + 1)}
-                  onClick={() => setSecrets(secrets.filter((_, j) => j !== i))}
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            ))}
-            <div className="editor-divider">
-              <Activity size={15} />
-              {t('就绪检测')}
-            </div>
-            <div className="form-row">
-              <label>
-                {t('检测方式')}
-                <Select
-                  aria-label={t('检测方式')}
-                  value={edit.readiness.kind}
-                  onValueChange={(kind) =>
-                    setEdit({
-                      ...edit,
-                      readiness: { ...edit.readiness, kind: kind as ReadinessKind },
-                    })
-                  }
-                  options={[
-                    { value: 'PROCESS', label: t('PROCESS · 存活并通过宽限期') },
-                    { value: 'PORT', label: t('PORT · 本次进程组监听端口') },
-                    { value: 'HTTP', label: t('HTTP · 本机健康检查 2xx') },
-                    { value: 'LOG_PHRASE', label: t('LOG_PHRASE · 输出包含关键字') },
-                  ]}
-                />
-              </label>
-              <label>
-                {t('就绪超时（秒）')}
-                <input
-                  type="number"
-                  min={1}
-                  max={300}
-                  required
-                  value={edit.readiness.timeout_seconds}
-                  onChange={(e) =>
-                    setEdit({
-                      ...edit,
-                      readiness: { ...edit.readiness, timeout_seconds: Number(e.target.value) },
-                    })
-                  }
-                />
-              </label>
-            </div>
-            {edit.readiness.kind === 'PORT' && (
-              <label>
-                {t('检测端口')}
-                <input
-                  type="number"
-                  min={1}
-                  max={65535}
-                  required
-                  value={edit.readiness.port ?? ''}
-                  onChange={(e) =>
-                    setEdit({
-                      ...edit,
-                      readiness: { ...edit.readiness, port: Number(e.target.value) },
-                    })
-                  }
-                />
-              </label>
-            )}
-            {edit.readiness.kind === 'HTTP' && (
-              <label>
-                {t('健康检查 URL')}
-                <input
-                  required
-                  placeholder="http://127.0.0.1:8080/health"
-                  value={edit.readiness.url}
-                  onChange={(e) =>
-                    setEdit({ ...edit, readiness: { ...edit.readiness, url: e.target.value } })
-                  }
-                />
-                <span className="field-hint">
-                  {t('仅访问 loopback HTTP，要求本次进程组持有目标端口；不跟随重定向。')}
-                </span>
-              </label>
-            )}
-            {edit.readiness.kind === 'LOG_PHRASE' && (
-              <label>
-                {t('日志关键字')}
-                <input
-                  required
-                  maxLength={4096}
-                  value={edit.readiness.phrase}
-                  onChange={(e) =>
-                    setEdit({ ...edit, readiness: { ...edit.readiness, phrase: e.target.value } })
-                  }
-                />
-              </label>
-            )}
-            <div className="form-row">
-              <label>
-                {t('检测间隔（毫秒）')}
-                <input
-                  type="number"
-                  min={100}
-                  max={5000}
-                  required
-                  value={edit.readiness.interval_ms}
-                  onChange={(e) =>
-                    setEdit({
-                      ...edit,
-                      readiness: { ...edit.readiness, interval_ms: Number(e.target.value) },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                {t('进程启动宽限（毫秒）')}
-                <input
-                  type="number"
-                  min={100}
-                  max={10000}
-                  required
-                  value={edit.readiness.grace_ms}
-                  onChange={(e) =>
-                    setEdit({
-                      ...edit,
-                      readiness: { ...edit.readiness, grace_ms: Number(e.target.value) },
-                    })
-                  }
-                />
-              </label>
-            </div>
-            <div className="form-row">
-              <label>
-                {t('正常停止宽限（秒）')}
-                <input
-                  type="number"
-                  min={1}
-                  max={30}
-                  required
-                  value={edit.stop_grace_seconds}
-                  onChange={(e) => setEdit({ ...edit, stop_grace_seconds: Number(e.target.value) })}
-                />
-              </label>
-              <label>
-                {t('每次日志上限（KiB）')}
-                <input
-                  type="number"
-                  min={64}
-                  max={10240}
-                  required
-                  value={edit.log_limit_kb}
-                  onChange={(e) => setEdit({ ...edit, log_limit_kb: Number(e.target.value) })}
-                />
-              </label>
-            </div>
-          </div>
-        </details>
-      </div>
-      <div className="modal-actions">
-        {!inline && (
-          <span className="modal-hint">
-            <ShieldCheck size={13} />
-            {t('不会修改项目源码或安装依赖')}
-          </span>
-        )}
-        {!inline && (
-          <button type="button" className="button secondary" disabled={busy} onClick={close}>
-            {t('取消')}
-          </button>
-        )}
-        <button type="submit" className="button primary" disabled={busy}>
-          {busy ? <LoaderCircle size={15} className="spin" /> : <Play size={15} />}
-          {inline ? t('启动…') : t('保存配置')}
-        </button>
-      </div>
-    </form>
-  );
-  return inline ? (
-    form
-  ) : (
-    <Modal
-      title={title || (initial.id ? t('编辑启动方式') : t('添加服务'))}
-      subtitle={description || t('填写启动命令，其余选项按需展开。')}
-      className="service-editor-dialog"
-      close={() => !busy && close()}
-    >
-      {form}
-    </Modal>
   );
 }

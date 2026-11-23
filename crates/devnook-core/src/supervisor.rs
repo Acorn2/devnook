@@ -214,6 +214,10 @@ pub fn reconcile(mut run: ServiceRun) -> ServiceRun {
         return run;
     }
     if anchor_valid(&run) {
+        if let Some((mem, cpu)) = run.pid.or(run.worker_pid).and_then(process::task_metrics) {
+            run.memory_rss_bytes = Some(mem);
+            run.cpu_time_ms = Some(cpu);
+        }
         return run;
     }
     if run.worker_pid.is_none() && now().saturating_sub(run.started_at) <= 5 {

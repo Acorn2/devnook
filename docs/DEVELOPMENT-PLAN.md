@@ -1547,3 +1547,46 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 
 - `v0.1.8` 标签指向已推送的 `ef4ca80c366229e8eddbc78cb375b6616d3a4519`。两架构 Release workspace 各通过 105 项测试，5 个内部 fixture 忽略。Intel 首轮使用 Python 3.14 时有一项就绪检查超时，改用系统 Python 3.9.6 后重跑整组通过，代码和测试期限保持原值。
 - GitHub Releases 已将 [v0.1.8](https://github.com/Acorn2/devnook/releases/tag/v0.1.8) 设为最新版。两份 DMG 与对应校验文件均从公开地址重新下载，与本机 SHA-256、体积和 GitHub digest 核对一致。README 与中英文官网清单同步登记公开链接。签名、体积和核验范围见 [发行记录](RELEASING.md)。
+
+## Node CLI 与 Web 工作台启动建议（2026-11-22）
+
+- 扫描和启动建议共用 `package.json` 规则。已声明的 `bin` 入口可通过显式服务子命令生成建议；`workspace` 需要 Web 前端依赖或已有的服务命令证据。回归覆盖裸 CLI、npm 别名、工作区管理和帮助命令、Vite 以及普通 Node 服务。
+- 使用独立数据目录和 v10 Core 扫描实际 `toutiao-ops` 仓库。`cli/` 的唯一建议为 `npm run workspace`，依据 `scripts.workspace`，参数为 `run` 和 `workspace`。隔离库服务配置数为 0，Core 正常退出，验证过程未启动项目命令。
+- `pnpm test` 通过 106 项，5 个内部 fixture 忽略。`pnpm build:cli`、Rust 格式检查与 `git diff --check` 通过。
+
+## 启动命令核对与失败提示（2026-11-22）
+
+- 启动建议的行操作改为「核对命令」，打开可编辑表单并提示命令来自自动识别。用户可核对运行目录、修改命令，再通过「保存并继续…」进入既有的启动确认。没有建议命令时可手动填写。
+- 运行失败时保留错误和日志，在详情直接提供「修改启动命令」。保存已登记服务的编辑后，由用户另行发起启动。
+- `pnpm check`、`pnpm test:ui`（40 项）、`pnpm build`、`pnpm format:check`、`git diff --check` 通过。隔离浏览器预览验证中文浅色的手动填写、建议编辑、保存与启动确认，以及英文暗色 760×560 的失败提示、退出码翻译和编辑入口。隔离操作仅触发内存替身中的读取、保存与预览，测试页面已关闭，临时 Web UI 已停止。
+
+## 外部服务停止后识别重新拉起（2026-11-22）
+
+- 桌面发送已确认的 SIGTERM 后，关闭确认框并在后台短时核对原进程身份和监听。新进程须在本次停止请求后启动，并匹配原项目、用户、可执行文件、命令、工作目录和同一 TCP 监听地址。当前用户的 launchd 任务表能核对新 PID 时，提示显示任务名；其余结果分别提示原进程退出、仍运行或无法核实。
+- 观察在本机 Core 客户端执行，沿用 v10 的进程查询。停止确认只作用于原 PID，新 PID 仅用于核对和展示。
+- `pnpm test` 通过 107 项，5 个内部 fixture 忽略。新增真实进程回归使用隔离的 Node 服务，观察到原 PID 退出和同命令的新监听实例，新实例保持运行。`pnpm check`、`pnpm test:ui`（40 项）、`pnpm build`、Rust / 前端格式检查和 `git diff --check` 通过。隔离浏览器验证中英重启通知及普通退出、仍运行、无法核实。真实 TextLift 的 launchd 任务映射仅读取；测试页面已关闭，临时 Web UI 已停止。
+
+## 阶段一：进程资源采集、前端巨石页面拆分与日志渲染优化（2026-11-23）
+
+- **进程系统资源采集**：在 `devnook-core/src/process.rs` 中通过 macOS 原生 `libc::proc_pidinfo(PROC_PIDTASKINFO)` 安全、只读获取进程的物理内存驻留集（RSS）与 CPU 累计时间，零额外进程开销；在 `ProcessDetail` 与 `ServiceRun` 增加可选指标字段 `memory_rss_bytes` 与 `cpu_time_ms`，兼容既有 UDS 协议与 SQLite 序列化，并新增单元测试 `test_task_metrics_current_process` 覆盖。
+- **前端资源指标展示**：在 `ServicePresentation.ts` 中增加 `formatMemoryBytes` 和 `formatCpuTime` 格式化工具及单测；在服务详情页、服务列表与端口管理详情中直观展示物理内存与 CPU 耗时（如 `128.0 MB`、`2m 5s`），中英多语言与浅暗主题对齐。
+- **ServicesPage 巨石组件拆解**：将 2,160+ 行的 `ServicesPage.tsx` 解耦，独立抽离出 `ServiceEditor.tsx`（460 行配置表单与依赖选择）与 `ServiceConfirmation.tsx`（110 行启动/重启/强停确认弹窗），页面缩减近 600 行，消除重复与未用导入。
+- **日志渲染性能与交互优化**：在 `useRunLog.ts` 中增加基于结构比对的引用缓存（`arePagesEqual`），避免日志无变化时每秒触发无谓的组件重渲染；在 `RunLogPanel.tsx` 中增加滚动到底部吸附状态（`wasAtBottomRef`），新日志到达时智能自动滚底，用户向上回滚阅读时不强行打断。
+
+## P0 & P1 UI 与交互优化：按钮消除歧义、日志时间戳可读化与快捷操作/筛选（2026-11-23）
+
+- **服务卡片消除“复选框”歧义（P0）**：左侧服务列表中的停止操作从形似 Checkbox 的 `[ ] 停止` 改造为独立的微型操作按钮 `.service-card-action-btn.stop`，采用实心停止符号 `■` 与轻量危险警告背景，启动、停止与切换状态语义明确。
+- **日志时间戳人类可读化（P0）**：在 `ServicePresentation.ts` 与 `RunLogPanel.tsx` 中实现 `formatLogTimestamp`，将秒级原始时间戳 `[1795187637]` 转换为本地可读的 `[HH:mm:ss]` 格式，支持复制格式化日志，并通过单元测试覆盖。
+- **详情头部资源指标直观透出（P0）**：在服务详情页头部（标题与状态 Badge 旁）直接透出物理内存（RSS）与 CPU 耗时药丸标签，不再强依赖用户点开折叠的 `▶ 运行详情`。
+- **服务头部高频快捷操作按钮（P1）**：在服务详情头部右侧直接提供「重启」、「停止」、「编辑」等常用操作按钮，无需反复点开下拉菜单；保留「...」用于强停、删除等次频或破坏性动作。
+- **端口管理顶部快捷分段过滤器（P1）**：在端口管理页新增胶囊分段标签（`全部` / `DevNook 托管` / `项目关联` / `系统与未关联`），带实时数字计数徽标，一键快速剔除 60+ 系统后台进程干扰；移除端口行冗余的移动端风格右箭头，进程详情大标题优先展示项目归属名称。
+- **全量验证与测试包更新**：`pnpm check`、`pnpm build`、`node apps/desktop/tests/service-presentation.test.mjs`（13 项全过）、`pnpm test`（108 项全过）；测试安装包与 CLI 已在 `target/preview/` 完成签名并更新。
+- **全量验证**：`pnpm check`、`pnpm test:ui`（41 项，全通过）、`pnpm build`、`pnpm format:check`、`cargo fmt --all -- --check` 全部通过；工作区全量 `cargo test --workspace` 通过（108 项 passed，5 项内部 fixture 忽略）。
+
+## v0.1.9 双架构正式发行（2026-11-23）
+
+- **版本同步与双架构构建**：全局统一升级版本号至 0.1.9。正式构建 Apple Silicon (`aarch64`) 与 Intel Mac (`x86_64`) 的 Release 应用与 DMG 安装包（`DevNook_0.1.9_aarch64.dmg` 与 `DevNook_0.1.9_x64.dmg`）。
+- **签名与校验**：两个包均完成 ad-hoc 签名与 `hdiutil verify` 校验，两份校验和文件 `SHA256SUMS` 和 `SHA256SUMS-x86_64` 校验全部通过。
+- **全量测试与验证**：`pnpm check`（TypeScript）、`pnpm test:ui`（42 项前端测试全部通过）、`pnpm test`（Rust workspace 108 项测试全部通过）、`pnpm format:check`、`pnpm site:check`（98 项站点链接与清单检查全部通过）。
+- **文档与官网**：更新 `README.md`、`README.en.md`、`docs/releases/v0.1.9.md`、`docs/RELEASING.md` 与 `site/release.json`。
+

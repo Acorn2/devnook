@@ -151,6 +151,10 @@ pub struct ProcessDetail {
     pub stop_reason: String,
     #[serde(default)]
     pub service_id: Option<String>,
+    #[serde(default)]
+    pub memory_rss_bytes: Option<u64>,
+    #[serde(default)]
+    pub cpu_time_ms: Option<u64>,
 }
 fn observed() -> String {
     "OBSERVED".into()

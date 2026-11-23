@@ -497,6 +497,8 @@ mod tests {
             can_stop: false,
             stop_reason: String::new(),
             service_id: None,
+            memory_rss_bytes: None,
+            cpu_time_ms: None,
         }
     }
 

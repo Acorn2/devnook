@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Copy, FileText, Pause, Play, Search, Trash2, X } from 'lucide-react';
 import { t } from './i18n';
 import ServiceOptions from './ServiceOptions';
-import { serviceIsActive } from './ServicePresentation';
+import { serviceIsActive, formatLogTimestamp } from './ServicePresentation';
 import type { ServiceRun } from './types';
 import { useRunLog } from './useRunLog';
 
@@ -28,11 +28,26 @@ export default function RunLogPanel({
   const [logQuery, setLogQuery] = useState('');
   const runLog = useRunLog(disabled ? '' : runId || '', logQuery);
   const log = runLog.page;
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  const wasAtBottomRef = useRef(true);
+
+  const handleScroll = () => {
+    const el = logContainerRef.current;
+    if (!el) return;
+    wasAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 35;
+  };
+
+  useEffect(() => {
+    const el = logContainerRef.current;
+    if (!el || !wasAtBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [log?.lines]);
+
   async function copyVisibleLog() {
     if (!log?.lines.length) return;
     try {
       if (!navigator.clipboard) throw new Error(t('无法访问剪贴板，请手动选择文字复制。'));
-      await navigator.clipboard.writeText(log.lines.join('\n'));
+      await navigator.clipboard.writeText(log.lines.map(formatLogTimestamp).join('\n'));
       notify(t('已复制当前显示的日志'));
     } catch (e) {
       report(e);
@@ -98,6 +113,8 @@ export default function RunLogPanel({
         </ServiceOptions>
       </div>
       <div
+        ref={logContainerRef}
+        onScroll={handleScroll}
         className="service-log"
         role="log"
         aria-label={t('服务输出日志')}
@@ -128,7 +145,7 @@ export default function RunLogPanel({
                     : ''
               }
             >
-              {line}
+              {formatLogTimestamp(line)}
             </div>
           ))
         )}

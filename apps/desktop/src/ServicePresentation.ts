@@ -152,3 +152,37 @@ export function externalServiceIdentity(
     qualifier,
   };
 }
+
+export function formatMemoryBytes(bytes?: number | null): string {
+  if (bytes === undefined || bytes === null || bytes <= 0) return '';
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+export function formatCpuTime(ms?: number | null): string {
+  if (ms === undefined || ms === null || ms <= 0) return '';
+  const seconds = ms / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSecs = Math.floor(seconds % 60);
+  return `${minutes}m ${remainingSecs}s`;
+}
+
+export function formatLogTimestamp(line: string): string {
+  const match = line.match(/^\[(\d{10}|\d{13})\](.*)$/);
+  if (!match) return line;
+  const num = parseInt(match[1], 10);
+  const ms = match[1].length === 10 ? num * 1000 : num;
+  const d = new Date(ms);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `[${hh}:${mm}:${ss}]${match[2]}`;
+}

@@ -96,5 +96,7 @@ pub fn failed_run(
         stop_requested: false,
         stop_requested_at_ms: None,
         log_truncated: false,
+        memory_rss_bytes: None,
+        cpu_time_ms: None,
     }
 }

@@ -655,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "devnook-cli"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "clap",
  "devnook-core",
@@ -666,7 +666,7 @@ dependencies = [
 
 [[package]]
 name = "devnook-core"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "glob",
  "libc",
@@ -684,7 +684,7 @@ dependencies = [
 
 [[package]]
 name = "devnook-desktop"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "devnook-core",
  "objc2-foundation",

@@ -286,6 +286,9 @@ export const english: Record<string, string> = {
   按启动来源筛选: 'Filter by launch source',
   全部启动来源: 'All launch sources',
   'DevNook 托管': 'DevNook managed',
+  项目关联: 'Project associated',
+  系统与未关联: 'System & unassociated',
+  快捷分类筛选: 'Quick category filter',
   外部发现: 'Externally detected',
   清除筛选: 'Clear filters',
   '运行时按进程名分组；未核验的启动工具统一归为外部。':
@@ -312,6 +315,8 @@ export const english: Record<string, string> = {
   命令已复制: 'Command copied',
   不可访问: 'Unavailable',
   运行时长: 'Uptime',
+  物理内存: 'Memory (RSS)',
+  'CPU 耗时': 'CPU Time',
   工作目录: 'Working directory',
   不可访问或权限不足: 'Unavailable or permission denied',
   启动时间: 'Started at',
@@ -635,6 +640,7 @@ export const english: Record<string, string> = {
   未配置: 'Not configured',
   填写启动命令后即可运行: 'Enter a startup command to run this service',
   '启动…': 'Start…',
+  核对命令: 'Review command',
   填写命令: 'Enter command',
   返回项目列表: 'Back to projects',
   '打开 IDE': 'Open IDE',
@@ -669,7 +675,10 @@ export const english: Record<string, string> = {
   '暂未发现外部启动的项目服务。其他监听可在端口管理查看。':
     'No externally launched project services detected. See Ports for other listeners.',
   '端口状态未知，暂无法列出外部服务': 'Port status unknown. External services cannot be listed.',
-  配置启动方式: 'Configure launch method',
+  '启动命令由 DevNook 自动识别，可按项目实际用法修改。':
+    'DevNook suggested this command. Edit it to match how you start the project.',
+  '可填写平时在此目录运行的启动命令。': 'Enter the command you normally run from this directory.',
+  '保存并继续…': 'Save and continue…',
   选择左侧服务: 'Select a service on the left',
   '查看启动命令、运行状态和日志，': 'See its startup command, status, and logs, ',
   '也可以直接启动或停止。': 'or start and stop it directly.',
@@ -679,6 +688,11 @@ export const english: Record<string, string> = {
   重启: 'Restart',
   更多服务操作: 'More service actions',
   编辑服务配置: 'Edit service configuration',
+  修改启动命令: 'Edit launch command',
+  '可先查看运行日志，再核对启动命令和工作目录。':
+    'Check the run logs, then review the launch command and working directory.',
+  '启动进程异常退出（{{0}}）': 'The launch process exited unexpectedly (code {{0}}).',
+  进程在就绪检查通过前退出: 'The process exited before it was ready.',
   移除服务配置: 'Remove service configuration',
   实际监听: 'Actual listeners',
   '进程存活或“已就绪”不一定代表已监听 TCP 端口。':
@@ -698,6 +712,9 @@ export const english: Record<string, string> = {
   最近退出码: 'Last exit code',
   运行日志: 'Run logs',
   选择运行记录: 'Choose run history',
+  重启服务: 'Restart service',
+  停止服务: 'Stop service',
+  编辑配置: 'Edit configuration',
   最近运行: 'Latest run',
   搜索服务日志: 'Search service logs',
   '筛选日志关键字…': 'Filter log keywords…',
@@ -722,8 +739,17 @@ export const english: Record<string, string> = {
     'Project ownership confirmed for this process. The external process still runs independently.',
   '。保存只创建新配置，旧服务继续运行；随后可选择是否切换。环境变量需自行核对，IDE 调试会话不会迁移。':
     '. Saving only creates a new configuration; the old service keeps running. You can confirm a switch afterward. Review environment variables yourself. IDE debug sessions will not be migrated.',
-  '已发送正常停止信号，请核对退出结果；不会自动强杀':
-    'Graceful stop signal sent. Verify that the process exits. No automatic force kill.',
+  '已发送停止信号，正在核对进程（PID {{0}}）的退出情况。':
+    'Stop signal sent. Checking whether PID {{0}} exits.',
+  '原进程（PID {{0}}）已退出。macOS 后台任务 {{1}} 已启动新进程（PID {{2}}）。':
+    'PID {{0}} exited. The macOS background job {{1}} started a new process (PID {{2}}).',
+  '原进程（PID {{0}}）已退出。同一服务的新进程（PID {{1}}）正在监听原地址。':
+    'PID {{0}} exited. A new instance of the same service (PID {{1}}) is listening on the original address.',
+  '原进程（PID {{0}}）已退出。': 'The original process (PID {{0}}) exited.',
+  '已发送停止信号。原进程（PID {{0}}）在观察结束时仍在运行。':
+    'Stop signal sent. The original process (PID {{0}}) was still running when the check ended.',
+  '已发送停止信号，暂时无法核实进程（PID {{0}}）是否退出。':
+    'Stop signal sent. DevNook could not verify whether PID {{0}} exited.',
   '旧实例已停止，新服务未能启动；请查看错误原因，配置已保留':
     'The old instance stopped, but the new service failed to start. Review the error. Configuration is retained.',
   '旧实例已退出，DevNook 已提交启动；请核对就绪状态':

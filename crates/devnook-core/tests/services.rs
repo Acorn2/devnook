@@ -1,8 +1,10 @@
 #![cfg(target_os = "macos")]
 
 use devnook_core::{
+    external_service::ExternalStopOutcome,
     health,
     ipc::{self, CoreClient},
+    model::now_millis,
     process,
     secrets::SecretStore,
     service_logs::LogSink,
@@ -211,7 +213,7 @@ impl ExternalNode {
         .unwrap();
         fs::write(directory.join("server.cjs"), r#"
 const fs = require('node:fs');
-const mode = process.argv[2] || 'normal';
+const mode = process.env.FIXTURE_REPLACEMENT ? 'normal' : process.argv[2] || 'normal';
 const server = require('node:net').createServer();
 server.listen(Number(process.env.PORT), '127.0.0.1', () => {
   console.log('NODE_READY');
@@ -222,6 +224,14 @@ process.on('SIGTERM', () => {
   if (mode === 'ignore') return;
   if (mode === 'close-but-live') { server.close(); return; }
   server.close(() => {
+    if (mode === 'same-command-respawn') {
+      const child = require('node:child_process').spawn(process.execPath, ['server.cjs', mode], {
+        env: {...process.env, FIXTURE_REPLACEMENT: '1'}, stdio: 'ignore', detached: true,
+      });
+      fs.writeFileSync('replacement-pid', String(child.pid));
+      child.unref();
+      return process.exit(0);
+    }
     if (mode !== 'respawn') return process.exit(0);
     const child = require('node:child_process').spawn(process.execPath, [__filename, 'normal'], {env:process.env,stdio:['ignore','ignore','ignore','ipc']});
     fs.writeFileSync('replacement-pid', String(child.pid));
@@ -396,6 +406,43 @@ fn external_service_stop_reuses_pid_confirmation_without_adopting_the_process() 
         .core
         .prepare_external_service_stop(std::process::id())
         .is_err());
+}
+
+#[test]
+fn external_stop_observation_reports_the_new_instance_without_stopping_it() {
+    let h = Harness::new();
+    let mut external = ExternalNode::new(&h, "same-command-respawn");
+    let _daemon = daemon(h.temp.path());
+    let client = CoreClient::with_launcher(h.temp.path(), launcher()).unwrap();
+    let preview: devnook_core::model::StopPreview = client
+        .invoke(
+            "prepare_external_service_stop",
+            serde_json::json!({"pid": external.child.id()}),
+        )
+        .unwrap();
+    let requested_at = now_millis();
+    client
+        .confirm_stop(&preview.token, preview.process.pid)
+        .unwrap();
+    let outcome = client.observe_external_service_stop(&preview.process, requested_at);
+    let replacement_pid = fs::read_to_string(external.directory.join("replacement-pid"))
+        .unwrap()
+        .parse::<u32>()
+        .unwrap();
+    assert_ne!(replacement_pid, preview.process.pid);
+    assert_eq!(
+        outcome,
+        ExternalStopOutcome::Reappeared {
+            pid: replacement_pid,
+            launchd_job: None,
+        }
+    );
+    assert!(!external.alive());
+    assert!(process::identity(replacement_pid).is_some_and(|p| p.alive));
+    assert!(client.services().unwrap().is_empty());
+    client
+        .invoke::<()>("shutdown", serde_json::json!({}))
+        .unwrap();
 }
 
 #[test]

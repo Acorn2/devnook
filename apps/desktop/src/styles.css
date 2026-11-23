@@ -2103,6 +2103,55 @@ main.workbench-page {
   font-weight: 600;
   line-height: 1.4;
 }
+.port-scope-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.1rem 0;
+  margin: 0.2rem 0 0.5rem;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.port-scope-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.26rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.port-scope-tab:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.port-scope-tab.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.port-scope-tab .tab-count {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.port-scope-tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: var(--on-accent);
+}
 .ports-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(7rem, 12rem) 7.5rem auto;
@@ -2444,7 +2493,7 @@ main.workbench-page {
 }
 .process-numbers {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
   gap: 0.7rem;
 }
 .process-numbers dd {
@@ -2732,7 +2781,7 @@ main.workbench-page {
     gap: 0.75rem;
   }
   .process-numbers {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
   }
   .empty-state {
     min-height: 32rem;
@@ -3016,6 +3065,27 @@ main.workbench-page {
   color: var(--muted);
   background: var(--surface-subtle);
   border-color: var(--line);
+}
+.resource-chip,
+.memory-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  line-height: 1.6;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.3rem;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.resource-chip svg,
+.memory-chip svg {
+  flex-shrink: 0;
+  opacity: 0.75;
 }
 .service-detail {
   padding: 1.5rem;
@@ -4055,8 +4125,56 @@ main.workbench-page {
   flex-direction: column;
   align-self: stretch;
   align-items: flex-end;
+  justify-content: space-between;
   flex-shrink: 0;
   gap: 0.25rem;
+}
+.service-card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.35rem;
+  font-size: 0.73rem;
+  font-weight: 500;
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.service-card-action-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.service-card-action-btn.stop {
+  border-color: var(--danger-line);
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+.service-card-action-btn.stop:hover:not(:disabled) {
+  border-color: var(--danger);
+  filter: brightness(0.95);
+}
+.service-card-action-btn.start {
+  border-color: var(--success-line);
+  color: var(--success);
+  background: var(--success-bg);
+}
+.service-card-action-btn.start:hover:not(:disabled) {
+  border-color: var(--success);
+  filter: brightness(0.95);
+}
+.service-card-action-btn.switch {
+  border-color: var(--line);
+  color: var(--cyan);
+  background: var(--surface-subtle);
+}
+.service-card-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .service-row .text-button {
   white-space: nowrap;

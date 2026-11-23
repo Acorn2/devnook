@@ -223,6 +223,68 @@ fn mobile_desktop_and_flutter_packages_choose_only_the_development_server_script
 }
 
 #[test]
+fn node_cli_packages_suggest_explicit_web_launches() {
+    let temp = TempDir::new().unwrap();
+    for &(name, manifest, _) in NODE_LAUNCH_CASES {
+        write(temp.path(), &format!("{name}/package.json"), manifest);
+    }
+    let core = Core::new(&temp.path().join("registry.db")).unwrap();
+    let projects = import(&core, temp.path());
+    assert_eq!(projects.len(), NODE_LAUNCH_CASES.len());
+    for &(name, _, expected) in NODE_LAUNCH_CASES {
+        let project = projects.iter().find(|p| p.candidate.name == name).unwrap();
+        assert_eq!(project.candidate.runnable, expected.is_some(), "{name}");
+        let drafts = core.service_drafts(&project.candidate.id).unwrap();
+        assert_eq!(drafts.len(), usize::from(expected.is_some()), "{name}");
+        if let Some(script) = expected {
+            assert_eq!(drafts[0].definition.executable, "npm", "{name}");
+            assert_eq!(drafts[0].definition.args, ["run", script], "{name}");
+            assert_eq!(drafts[0].source, format!("package.json · scripts.{script}"));
+            assert!(!drafts[0].definition.shell_mode);
+        }
+    }
+    assert!(core.services().unwrap().is_empty());
+}
+
+const NODE_LAUNCH_CASES: &[(&str, &str, Option<&str>)] = &[
+    (
+        "cli-and-workbench",
+        r#"{"bin":{"tool":"index.js"},"dependencies":{"commander":"*","@vue/runtime-dom":"*"},"scripts":{"start":"node index.js","workspace":"node index.js workspace","test":"node --test"}}"#,
+        Some("workspace"),
+    ),
+    (
+        "cli-and-vite",
+        r#"{"bin":"./cli.mjs","scripts":{"dev":"npm start","start":"npm run cli","cli":"node cli.mjs","web":"vite"}}"#,
+        Some("web"),
+    ),
+    (
+        "cli-only",
+        r#"{"bin":"index.js","scripts":{"start":"node index.js","workspace":"node index.js workspace"}}"#,
+        None,
+    ),
+    (
+        "workspace-manager",
+        r#"{"bin":"index.js","dependencies":{"vue":"*"},"scripts":{"start":"node index.js","workspace":"node index.js workspace list"}}"#,
+        None,
+    ),
+    (
+        "workspace-help",
+        r#"{"bin":"index.js","dependencies":{"vue":"*"},"scripts":{"workspace":"node ./index.js workspace --help"}}"#,
+        None,
+    ),
+    (
+        "workspace-server",
+        r#"{"scripts":{"workspace":"vite"}}"#,
+        Some("workspace"),
+    ),
+    (
+        "ordinary-node-server",
+        r#"{"scripts":{"start":"node index.js","workspace":"node tools/workspace.js"}}"#,
+        Some("start"),
+    ),
+];
+
+#[test]
 fn native_launches_and_compound_gui_scripts_never_become_server_suggestions() {
     let temp = TempDir::new().unwrap();
     for (name, script) in [

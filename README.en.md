@@ -11,6 +11,14 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Acorn2/devnook/releases/latest"><img src="https://img.shields.io/github/v/release/Acorn2/devnook?color=blue&label=Release" alt="Release" /></a>
+  <img src="https://img.shields.io/badge/Platform-macOS%2012%2B-black?logo=apple" alt="Platform" />
+  <img src="https://img.shields.io/badge/Arch-Apple%20Silicon%20%7C%20Intel-teal" alt="Arch" />
+  <img src="https://img.shields.io/badge/Built%20with-Tauri%202%20%7C%20Rust%20%7C%20React%2019-orange" alt="Tech Stack" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License" /></a>
+</p>
+
+<p align="center">
   <a href="https://acorn2.github.io/devnook/en/">Website</a> ·
   <a href="#features">What it does</a> ·
   <a href="#quick-demos">Quick demos</a> ·
@@ -23,16 +31,16 @@
 
 **Find projects. Run services. Trace ports.** DevNook brings code folders, preferred editors, launch configurations, and runtime state into one macOS desktop app. Import existing projects, confirm frontend and backend starts, read logs, and trace an occupied port to its process and directory.
 
-[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.8/DevNook_0.1.8_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.8/DevNook_0.1.8_x64.dmg) · [v0.1.8 release notes and checksums](https://github.com/Acorn2/devnook/releases/tag/v0.1.8) · [Build from source](#quick-start)
+[Apple Silicon DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.9/DevNook_0.1.9_aarch64.dmg) · [Intel Mac DMG](https://github.com/Acorn2/devnook/releases/download/v0.1.9/DevNook_0.1.9_x64.dmg) · [v0.1.9 release notes and checksums](https://github.com/Acorn2/devnook/releases/tag/v0.1.9) · [Build from source](#quick-start)
 
 If you work across several local projects, start with these tasks:
 
-| What you want to do                       | How DevNook helps                                                                             |
+| Common dev tasks & pain points            | How DevNook helps                                                                             |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Find a project and continue working       | Import it, find it with search, categories, or favorites, then open your preferred editor.    |
-| Start a frontend and API, then check them | Save launch configurations, confirm execution, and inspect readiness, actual ports, and logs. |
-| Investigate an occupied port              | Inspect its listener, process command, working directory, and project association.            |
-| Prepare a group of services in order      | Combine registered services into a startup plan and wait for dependencies to become ready.    |
+| Find scattered projects and resume work   | Scan and import, locate via search, tech stacks, or favorites, then launch your preferred editor. |
+| Run multi-tier services & monitor metrics | Save launch configs and start safely; inspect memory (RSS), CPU time, listeners, and logs live. |
+| Investigate occupied ports & noisy daemons| Filter out 60+ macOS system background ports in 1 click; trace commands, directories, and memory. |
+| Prepare grouped microservices in sequence | Combine into a startup plan and wait for dependencies to become ready before launching downstream. |
 
 ![DevNook project library with categories, favorites, stacks, listeners, and editor access](site/assets/projects-dark-en.png)
 
@@ -64,10 +72,12 @@ Open a project’s services, review suggestions derived from its manifests and s
 
 - For supported FastAPI layouts, DevNook suggests an explicit Uvicorn launch command. It fills in the port and TCP readiness check if the port is known; database and service dependencies remain yours to configure.
 - Start, stop, and restart registered services. Check port conflicts and dependency state before startup.
+- **Quick action buttons & clear controls**: Service cards feature unmistakable mini action buttons; the service detail header keeps Open in Browser, Restart, Stop, and Edit Configuration 1-click accessible.
+- **Real-time resource monitoring**: Reads process physical memory (RSS) and accumulated CPU time directly via macOS kernel system calls (< 1µs latency), displayed directly in the header and parameters.
 - The global service list leads with project names; a project's own list leads with service names. Names, relative directories, and actual ports distinguish services in the same project, with matching details on the right.
 - Use the star beside a configured service, launch suggestion, or associated external service to favorite its project. Stars for the same project stay in sync with the project library.
 - Inspect runtime state, actual listeners, launch commands, and working directories. Expand process details when needed.
-- Read stdout / stderr by run. To investigate an error, filter by keyword, pause log updates, then choose “Copy displayed log lines” under “More log actions”.
+- **Readable logs & smart auto-scroll**: Stdout / stderr lines use localized readable timestamps (e.g. `[15:23:40]`); scrolling up to read stack traces keeps your view steady without being pulled to the bottom.
 - Project icons, service markers, and actual ports share consistent project colors. Stack labels have their own colors; state keeps separate colors and text in both themes.
 - Started services and logs continue in the local backend after you close the app window.
 
@@ -92,7 +102,9 @@ Service details include “Let AI continue managing this service” to copy its 
 
 Search ports, PIDs, commands, or paths. Inspect the process command, executable, working directory, start time, and project association. Combine filters for project, address family, runtime, launch source, and more.
 
-Long commands show four lines by default, with expand, collapse, and full-command copy. Hovering a port no longer opens the entire launch command.
+- **Category segmented filter tabs**: Quick tabs for `All`, `DevNook Managed`, `Project Associated`, and `System & Unassociated` with real-time counters instantly filter out 60+ noisy macOS system daemons.
+- **Project-centric process details**: Details header prioritizes showing the associated project name (e.g. `source-desk · node`) alongside physical memory (RSS) and cumulative CPU runtime.
+- Long commands show four lines by default, with expand, collapse, and full-command copy. Hovering a port no longer opens the entire launch command.
 
 ![Port inspection with actual listening addresses, process command, working directory, and project association](site/assets/ports-dark-en.png)
 
@@ -139,7 +151,7 @@ Scan and import a project, start a service and read its logs, trace an occupied 
 
 ## Quick start
 
-To use the desktop app, choose the Apple Silicon or Intel Mac DMG from [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest), open it, and drag DevNook into Applications. The current installers are ad-hoc signed and have not completed Developer ID signing or Apple notarization. macOS may block the first launch; see the [v0.1.8 release notes](docs/releases/v0.1.8.md) for signing details and checksum verification.
+To use the desktop app, choose the Apple Silicon or Intel Mac DMG from [GitHub Releases](https://github.com/Acorn2/devnook/releases/latest), open it, and drag DevNook into Applications. The current installers are ad-hoc signed and have not completed Developer ID signing or Apple notarization. macOS may block the first launch; see the [v0.1.9 release notes](docs/releases/v0.1.9.md) for signing details and checksum verification.
 
 The steps below build from source. The target platform is **macOS 12+**, with separate Apple Silicon and Intel builds. The Intel build passed Rosetta tests on an Apple Silicon host. Native window interactions were not revalidated for this release; Intel hardware and physical macOS 12 devices still need verification. Windows / Linux installers are not available; see the future directions below.
 

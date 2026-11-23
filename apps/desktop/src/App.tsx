@@ -41,6 +41,7 @@ import WorkspacesPage from './WorkspacesPage';
 import AdvancedIntegrations from './AgentsPage';
 import Select from './Select';
 import { filterPortBindings, portRows, runtimeOptions } from './PortPresentation';
+import { formatCpuTime, formatMemoryBytes } from './ServicePresentation';
 import ProcessCommand from './ProcessCommand';
 import CategoryPicker from './CategoryPicker';
 import { ProjectBatchBar, ProjectCheckbox } from './ProjectSelection';
@@ -1477,6 +1478,7 @@ function PortsPage({
   const [stop, setStop] = useState<StopPreview | null>(null);
   const [pidInput, setPidInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [scopeFilter, setScopeFilter] = useState<'ALL' | 'MANAGED' | 'PROJECT' | 'SYSTEM'>('ALL');
   const [projectFilter, setProjectFilter] = useState('ALL');
   const [family, setFamily] = useState('ALL');
   const [runtime, setRuntime] = useState('ALL');
@@ -1512,7 +1514,21 @@ function PortsPage({
     }
   }, [ports, selected]);
   const nameOf = (id: string | null) => projects.find((p) => p.id === id)?.name || t('未关联项目');
-  const visible = filterPortBindings(ports, projects, {
+  const allRows = portRows(ports);
+  const managedCount = allRows.filter((p) => p.source === 'DEVNOOK').length;
+  const projectCount = allRows.filter(
+    (p) => p.source !== 'DEVNOOK' && p.project_id !== null,
+  ).length;
+  const systemCount = allRows.filter((p) => p.source !== 'DEVNOOK' && p.project_id === null).length;
+
+  const scopedPorts = ports.filter((p) => {
+    if (scopeFilter === 'MANAGED') return p.source === 'DEVNOOK';
+    if (scopeFilter === 'PROJECT') return p.source !== 'DEVNOOK' && p.project_id !== null;
+    if (scopeFilter === 'SYSTEM') return p.source !== 'DEVNOOK' && p.project_id === null;
+    return true;
+  });
+
+  const visible = filterPortBindings(scopedPorts, projects, {
     query,
     project: projectFilter,
     family,
@@ -1521,7 +1537,7 @@ function PortsPage({
     source,
   });
   const rows = portRows(visible);
-  const total = portRows(ports).length;
+  const total = allRows.length;
   const advancedCount = [runtime, kind, source].filter((v) => v !== 'ALL').length;
   const hasSnapshot = !disabled && !snapshotError && lastRefresh !== null;
   return (
@@ -1564,6 +1580,44 @@ function PortsPage({
           </button>
         </div>
       </header>
+      <div className="port-scope-tabs" role="tablist" aria-label={t('快捷分类筛选')}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={scopeFilter === 'ALL'}
+          className={`port-scope-tab ${scopeFilter === 'ALL' ? 'active' : ''}`}
+          onClick={() => setScopeFilter('ALL')}
+        >
+          {t('全部')} <span className="tab-count">{total}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={scopeFilter === 'MANAGED'}
+          className={`port-scope-tab ${scopeFilter === 'MANAGED' ? 'active' : ''}`}
+          onClick={() => setScopeFilter('MANAGED')}
+        >
+          {t('DevNook 托管')} <span className="tab-count">{managedCount}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={scopeFilter === 'PROJECT'}
+          className={`port-scope-tab ${scopeFilter === 'PROJECT' ? 'active' : ''}`}
+          onClick={() => setScopeFilter('PROJECT')}
+        >
+          {t('项目关联')} <span className="tab-count">{projectCount}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={scopeFilter === 'SYSTEM'}
+          className={`port-scope-tab ${scopeFilter === 'SYSTEM' ? 'active' : ''}`}
+          onClick={() => setScopeFilter('SYSTEM')}
+        >
+          {t('系统与未关联')} <span className="tab-count">{systemCount}</span>
+        </button>
+      </div>
       <div className="ports-toolbar">
         <div className="search-field">
           <Search size={16} />
@@ -1639,6 +1693,7 @@ function PortsPage({
             className="text-button"
             onClick={() => {
               setQuery('');
+              setScopeFilter('ALL');
               setProjectFilter('ALL');
               setFamily('ALL');
               setRuntime('ALL');
@@ -1686,7 +1741,6 @@ function PortsPage({
                   <span className="status-dot" aria-hidden="true" />
                   <strong className="port-chip">:{p.port}</strong>
                   <span>{p.name}</span>
-                  <ChevronRight size={14} />
                 </div>
                 <div className="port-meta">
                   <span>{nameOf(p.project_id)}</span>
@@ -1751,7 +1805,11 @@ function PortsPage({
                 </span>
                 <div>
                   <span className="eyebrow">PROCESS INSPECTOR</span>
-                  <h2>{detail.name}</h2>
+                  <h2>
+                    {detail.project_id && nameOf(detail.project_id) !== t('未关联项目')
+                      ? `${nameOf(detail.project_id)} · ${detail.name}`
+                      : detail.name}
+                  </h2>
                   <span className="field-hint">
                     PID {detail.pid} ·{' '}
                     {detail.source === 'DEVNOOK' ? t('DevNook 托管') : t('外部发现')}
@@ -1795,22 +1853,34 @@ function PortsPage({
                   </dd>
                 </div>
                 <div className="process-numbers">
-                  <span>
+                  <div>
                     <dt>PID</dt>
                     <dd>{detail.pid}</dd>
-                  </span>
-                  <span>
+                  </div>
+                  <div>
                     <dt>PPID</dt>
                     <dd>{detail.ppid}</dd>
-                  </span>
-                  <span>
+                  </div>
+                  <div>
                     <dt>PGID</dt>
                     <dd>{detail.pgid}</dd>
-                  </span>
-                  <span>
+                  </div>
+                  <div>
                     <dt>{t('运行时长')}</dt>
                     <dd>{detail.elapsed}</dd>
-                  </span>
+                  </div>
+                  {detail.memory_rss_bytes ? (
+                    <div>
+                      <dt>{t('物理内存')}</dt>
+                      <dd>{formatMemoryBytes(detail.memory_rss_bytes)}</dd>
+                    </div>
+                  ) : null}
+                  {detail.cpu_time_ms ? (
+                    <div>
+                      <dt>{t('CPU 耗时')}</dt>
+                      <dd>{formatCpuTime(detail.cpu_time_ms)}</dd>
+                    </div>
+                  ) : null}
                 </div>
                 <div>
                   <dt>{t('工作目录')}</dt>
