@@ -55,7 +55,7 @@ pnpm site:preview
 
 本地 DMG 的存在不代表已公开发布。`record-release.mjs` 登记本地候选时使用 `published: false`，展示测得的体积与签名状态，并提供源码构建入口。
 
-当前 v0.1.8 的 Apple Silicon 与 Intel 包已在 GitHub Releases 公开。每个 DMG 与对应校验文件经过公开下载验证后，`site/release.json` 中相应 build 才设为 `published: true` 并填写准确 URL；官网逐架构展示入口、体积、SHA-256 和签名状态。Intel 文件名为 `_x64.dmg`，其清单架构为 `x86_64`。
+当前 v0.1.10 的 Apple Silicon 与 Intel 包已在 GitHub Releases 公开。每个 DMG 与对应校验文件经过公开下载验证后，`site/release.json` 中相应 build 才设为 `published: true` 并填写准确 URL；官网逐架构展示入口、体积、SHA-256 和签名状态。Intel 文件名为 `_x64.dmg`，其清单架构为 `x86_64`。
 
 DMG 应存放在 GitHub Releases。完成上传并核对公开文件后，按 [Release 分发说明](RELEASING.md)填写准确 URL，将 `published` 改为 `true`，再部署官网。不要仅为显示下载按钮而更改状态，也不要把 ad-hoc 签名写成已通过 Apple 公证。
 

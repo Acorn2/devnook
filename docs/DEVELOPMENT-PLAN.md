@@ -1633,4 +1633,5 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 
 - Apple Silicon 和 Intel 安装包均以 Release 模式构建，采用 ad-hoc 签名，Mach-O 和 Info.plist 最低系统版本均为 macOS 12.0。两份 DMG 通过镜像和 SHA-256 校验。只读挂载后核对包内文件与签名，并在临时目录正常启动和退出包内 Core。Intel 检查在 Apple Silicon 主机上通过 Rosetta 执行。
 - 两架构分别通过 116 项 `cargo test --release --workspace --locked` 测试，各有 5 个内部 fixture 按配置跳过。前端 48 项测试、TypeScript、Prettier、Rust 格式检查和中英文站点构建检查通过。
+- [GitHub Release v0.1.10](https://github.com/Acorn2/devnook/releases/tag/v0.1.10) 已公开。重新下载两份 DMG 和对应校验文件，核对实际字节数及 SHA-256，并逐项比对之前 10 个 Release 的 40 个资产。中英文 README 及站点发布清单登记了这次验证的下载地址。
 

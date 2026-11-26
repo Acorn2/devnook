@@ -21,7 +21,7 @@ Apple Silicon 本机默认构建的固定输出：
 
 ```text
 target/release/bundle/macos/DevNook.app
-target/release/bundle/dmg/DevNook_0.1.8_aarch64.dmg
+target/release/bundle/dmg/DevNook_0.1.10_aarch64.dmg
 target/release/bundle/dmg/SHA256SUMS
 ```
 
@@ -38,14 +38,14 @@ APPLE_SIGNING_IDENTITY=- CI=true pnpm tauri bundle --target x86_64-apple-darwin 
 node scripts/record-release.mjs --target x86_64-apple-darwin
 ```
 
-固定输出为 `target/x86_64-apple-darwin/release/bundle/` 下的 `macos/DevNook.app`、`dmg/DevNook_0.1.8_x64.dmg` 与 `dmg/SHA256SUMS-x86_64`。Rust target / 清单架构使用 `x86_64`，DMG 文件名沿用 Tauri 的 `x64`。显式 `--target aarch64-apple-darwin` 同样使用独立 target 目录；不指定 target 则从本机架构和默认 `target/release/` 登记。
+固定输出为 `target/x86_64-apple-darwin/release/bundle/` 下的 `macos/DevNook.app`、`dmg/DevNook_0.1.10_x64.dmg` 与 `dmg/SHA256SUMS-x86_64`。Rust target / 清单架构使用 `x86_64`，DMG 文件名沿用 Tauri 的 `x64`。显式 `--target aarch64-apple-darwin` 同样使用独立 target 目录；不指定 target 则从本机架构和默认 `target/release/` 登记。
 
 ## 校验
 
 ```sh
 sh scripts/rust-local.sh cargo test --release --workspace --locked
 codesign --verify --strict --deep target/release/bundle/macos/DevNook.app
-hdiutil verify target/release/bundle/dmg/DevNook_0.1.8_aarch64.dmg
+hdiutil verify target/release/bundle/dmg/DevNook_0.1.10_aarch64.dmg
 cd target/release/bundle/dmg
 shasum -a 256 -c SHA256SUMS
 ```
@@ -203,4 +203,15 @@ Apple Silicon 和 Intel 的 DMG 与校验文件均已从 GitHub Releases 重新�
 | Intel Mac | 16,579,579 | 5,451,133 | `b299412e87fcce3895dcd70194d83d1f76d5c542ee9fd0566d53d215464ad3cd` |
 
 两份 DMG 和两份校验文件均已完成本地 ad-hoc 签名与 `hdiutil verify` 校验。两架构各通过 108 项 Release workspace 测试，另有 42 项前端测试与 98 处静态检查通过。Intel 硬件及 macOS 12 真机未重新验收。
+
+## v0.1.10 项目监听识别修复
+
+[v0.1.10](https://github.com/Acorn2/devnook/releases/tag/v0.1.10) 对应源码 `b80070779d989ceb6c2288cefc50f9df66cfeffa`。本版修复 Vite 和项目内 Python 模块的监听漏报，并改进菜单栏、日志及服务配置操作。中英文说明见 [v0.1.10.md](releases/v0.1.10.md)。两个包均为 macOS 12+、ad-hoc 签名、未公证。
+
+| 架构 | 应用字节 | DMG 字节 | SHA-256 |
+| --- | ---: | ---: | --- |
+| Apple Silicon | 15,475,869 | 4,941,496 | `9364c6a25100541822accb8c901224c3d7e320bc21f2e387f0680a168a2008ac` |
+| Intel Mac | 16,608,797 | 5,466,167 | `a93ba3e9903e6655b70479f9093b50de2200320fd198971e5b42d3d92c1a9fc4` |
+
+两份 DMG 与各自的校验文件已从 GitHub 公开地址重新下载核对。双架构各通过 116 项 Release workspace 测试，5 个内部 fixture 按配置跳过，另有 48 项前端测试通过。包内 Core 在隔离目录验证启停，Intel 包通过 Rosetta 检查。
 
