@@ -8,7 +8,7 @@ use tauri::{
 };
 
 const TRAY: &str = "devnook-tray";
-const PANEL_WIDTH: f64 = 340.0;
+const PANEL_WIDTH: f64 = 356.0;
 const PANEL_MIN_HEIGHT: f64 = 80.0;
 const PANEL_MAX_HEIGHT: f64 = 520.0;
 
@@ -18,6 +18,7 @@ pub struct PanelHeight(Mutex<f64>);
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Destination {
     Services,
+    Ports,
     Managed {
         id: String,
         action: Option<ServiceAction>,
@@ -399,5 +400,6 @@ mod tests {
             serde_json::json!({"kind":"managed", "id":"s", "action":"restart"})
         )
         .is_ok());
+        assert!(serde_json::from_value::<Destination>(serde_json::json!({"kind":"ports"})).is_ok());
     }
 }

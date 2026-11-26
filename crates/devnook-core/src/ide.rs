@@ -109,6 +109,14 @@ const KNOWN: &[KnownApp] = &[
         "TERMINAL",
         &[]
     ),
+    app!("", "iTerm2", "com.googlecode.iterm2", "TERMINAL", &[]),
+    app!("", "Warp", "dev.warp.Warp-Stable", "TERMINAL", &[]),
+    app!("", "Ghostty", "com.mitchellh.ghostty", "TERMINAL", &[]),
+    app!("", "WezTerm", "com.github.wez.wezterm", "TERMINAL", &[]),
+    app!("", "Alacritty", "org.alacritty", "TERMINAL", &[]),
+    app!("", "Kitty", "net.kovidgoyal.kitty", "TERMINAL", &[]),
+    app!("", "Hyper", "co.zeit.hyper", "TERMINAL", &[]),
+    app!("", "Tabby", "org.tabby", "TERMINAL", &[]),
 ];
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DevelopmentApp {
@@ -136,6 +144,8 @@ pub struct DevelopmentApps {
     pub apps: Vec<DevelopmentApp>,
     pub project_defaults: HashMap<String, AppPreference>,
     pub global_default: AppPreference,
+    #[serde(default)]
+    pub terminal_default: Option<AppPreference>,
     pub warnings: Vec<String>,
 }
 pub(super) struct BundleMetadata {
@@ -163,6 +173,13 @@ pub fn validate_target(target: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err("不支持的开发应用，请选择已安装的应用".into())
+    }
+}
+pub fn validate_terminal(target: &str) -> Result<(), String> {
+    if target == "TERMINAL" || app_path(target).is_some() {
+        Ok(())
+    } else {
+        Err("不支持的终端应用，请选择已安装的终端".into())
     }
 }
 pub fn inspect_app(path: &Path) -> Result<DevelopmentApp, String> {
@@ -336,6 +353,7 @@ pub fn discover_with_remembered(
         .iter()
         .map(|p| p.default_ide.as_str())
         .chain(std::iter::once(settings.default_ide.as_str()))
+        .chain(std::iter::once(settings.default_terminal.as_str()))
         .filter_map(app_path)
         .map(Path::to_path_buf)
         .chain(
@@ -386,6 +404,7 @@ pub fn discover_with_remembered(
         }
     }
     let global_default = preference(&settings.default_ide, settings, &apps);
+    let terminal_default = Some(preference(&settings.default_terminal, settings, &apps));
     let project_defaults = projects
         .iter()
         .map(|p| {
@@ -399,6 +418,7 @@ pub fn discover_with_remembered(
     Ok(DevelopmentApps {
         apps,
         global_default,
+        terminal_default,
         project_defaults,
         warnings,
     })
@@ -475,16 +495,21 @@ pub fn open(project: &Project, target: &str, settings: &Settings) -> Result<(), 
         command("/usr/bin/open", &["-R", path])?;
         return Ok(());
     }
-    let app = if let Some(path) = app_path(target) {
+    let effective = if target == "TERMINAL" {
+        settings.default_terminal.as_str()
+    } else {
+        target
+    };
+    let app = if let Some(path) = app_path(effective) {
         inspect_app(path)?
-    } else if let Some(path) = custom_path(target, settings) {
+    } else if let Some(path) = custom_path(effective, settings) {
         inspect_app(Path::new(path)).map_err(|e| format!("无法打开自定义应用：{e}"))?
     } else {
-        if target != "TERMINAL" {
-            validate_target(target)?;
+        if effective != "TERMINAL" {
+            validate_target(effective)?;
         }
         let catalog = discover(settings, std::slice::from_ref(project))?;
-        let preference = preference(target, settings, &catalog.apps);
+        let preference = preference(effective, settings, &catalog.apps);
         catalog
             .apps
             .into_iter()

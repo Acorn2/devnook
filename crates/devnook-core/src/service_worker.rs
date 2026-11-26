@@ -122,6 +122,7 @@ pub fn run(spec: WorkerSpec) -> Result<(), String> {
     run.pid = Some(child.id());
     run.state = ServiceState::Running;
     service_storage::save_run(&db, &run)?;
+    let mut last_persisted = serde_json::to_string(&run).unwrap_or_default();
     let found = Arc::new(AtomicBool::new(false));
     let log_failed = Arc::new(AtomicBool::new(false));
     let stdout = child.stdout.take().ok_or("stdout 不可用")?;
@@ -230,14 +231,26 @@ pub fn run(spec: WorkerSpec) -> Result<(), String> {
                     run.error = Some("就绪检查暂未通过".into());
                 }
             }
-            next_health =
-                Instant::now() + Duration::from_millis(spec.definition.readiness.interval_ms);
+            let next_interval = if run.state == ServiceState::Ready {
+                spec.definition
+                    .readiness
+                    .interval_ms
+                    .saturating_mul(4)
+                    .min(2000)
+            } else {
+                spec.definition.readiness.interval_ms
+            };
+            next_health = Instant::now() + Duration::from_millis(next_interval);
         }
         if log_failed.load(Ordering::Relaxed) && run.error.is_none() {
             run.error = Some("日志采集或写入失败，请检查磁盘空间".into());
         }
         run.log_truncated = sink.lock().map_err(|_| "日志锁异常")?.truncated;
-        service_storage::save_run(&db, &run)?;
+        let current_snapshot = serde_json::to_string(&run).unwrap_or_default();
+        if current_snapshot != last_persisted {
+            service_storage::save_run(&db, &run)?;
+            last_persisted = current_snapshot;
+        }
         std::thread::sleep(Duration::from_millis(100));
     }
     // Every remaining member of our group is gone. Do not wait indefinitely on escaped descendants.

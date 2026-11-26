@@ -8,6 +8,7 @@ import {
   Code2,
   ChevronRight,
   CircleAlert,
+  Copy,
   Cpu,
   Pencil,
   Play,
@@ -36,6 +37,7 @@ import ServiceBrowser, {
 import ServiceOptions from './ServiceOptions';
 import {
   externalServiceIdentity,
+  duplicateServiceDefinition,
   managedServiceIdentity,
   relativeServiceDirectory,
   serviceIsActive,
@@ -45,6 +47,7 @@ import {
   externalServiceChoices,
   externalPortConflict,
   groupServiceDrafts,
+  groupServicesByProject,
   pendingServiceDrafts,
 } from './ServicePresentation';
 import Select from './Select';
@@ -668,10 +671,15 @@ export default function ServicesPage({
       </button>
     );
   }
-  function serviceRow(service: ServiceView) {
+  function serviceRow(service: ServiceView, grouped = false) {
     const { definition, current_run } = service;
     const state = current_run?.state;
     const identity = managedIdentity(definition);
+    const titleText = grouped || project ? definition.name : identity.title;
+    const subtitleText =
+      grouped || project
+        ? relativeDirectory(definition.working_directory, definition.project_id)
+        : identity.qualifier;
     const isActive = active(state);
     const canSwitch =
       !isActive &&
@@ -683,7 +691,11 @@ export default function ServicesPage({
       <div
         key={definition.id}
         data-color={projectColor(definition.project_id)}
-        className={'service-row ' + (selected === definition.id ? 'selected' : '')}
+        className={
+          'service-row ' +
+          (grouped ? 'service-row-grouped ' : '') +
+          (selected === definition.id ? 'selected' : '')
+        }
       >
         <button className="service-row-select" onClick={() => setSelected(definition.id)}>
           <span className="service-row-heading">
@@ -691,21 +703,19 @@ export default function ServicesPage({
               <span className="service-identity-icon" aria-hidden="true">
                 <SquareTerminal size={15} />
               </span>
-              <strong title={identity.title}>{identity.title}</strong>
+              <strong title={titleText}>{titleText}</strong>
             </span>
             <ServiceBadge state={state} />
           </span>
           <span className="service-row-meta">
-            <span className="service-project" title={identity.qualifier}>
-              {project
-                ? relativeDirectory(definition.working_directory, definition.project_id)
-                : identity.qualifier}
+            <span className="service-project" title={subtitleText}>
+              {subtitleText}
             </span>
             <PortSummary bindings={actualPorts(definition.id)} available={portsAvailable} compact />
           </span>
         </button>
         <div className="service-row-actions">
-          {favoriteButton(definition.project_id)}
+          {!grouped && favoriteButton(definition.project_id)}
           <button
             className={`service-card-action-btn ${isActive ? 'stop' : canSwitch ? 'switch' : 'start'}`}
             disabled={disabled || busy || state === 'UNKNOWN' || state === 'STOPPING'}
@@ -730,6 +740,26 @@ export default function ServicesPage({
         </div>
       </div>
     );
+  }
+  function renderServiceRows(items: ServiceView[]) {
+    if (projectId) return items.map((item) => serviceRow(item, false));
+    return groupServicesByProject(items, projects).map((group) => (
+      <div
+        className="service-project-group"
+        key={group.projectId}
+        data-color={projectColor(group.projectId)}
+      >
+        <div className="service-project-group-head">
+          <span className="service-project-group-title" title={group.projectName}>
+            <span className="service-project-dot" aria-hidden="true" />
+            <strong>{group.projectName}</strong>
+            <span className="subtle-count">{group.services.length}</span>
+          </span>
+          {favoriteButton(group.projectId)}
+        </div>
+        {group.services.map((item) => serviceRow(item, true))}
+      </div>
+    ));
   }
   function draftRow(value: ServiceDraft) {
     return (
@@ -894,7 +924,7 @@ export default function ServicesPage({
                 )}
               </div>
             )}
-          {(projectId ? visible : running).map(serviceRow)}
+          {renderServiceRows(projectId ? visible : running)}
           {primaryDrafts.length > 0 && (
             <div className="port-list-header">
               <span>{t('启动建议')}</span>
@@ -980,7 +1010,7 @@ export default function ServicesPage({
                 <span>{t('需要关注')}</span>
                 <span>{needsAttention.length}</span>
               </div>
-              {needsAttention.map(serviceRow)}
+              {renderServiceRows(needsAttention)}
             </>
           )}
           {!projectId && launchable.length > 0 && (
@@ -997,7 +1027,7 @@ export default function ServicesPage({
                 <span>{launchable.length}</span>
               </button>
               <div id="launchable-services" hidden={!showLaunchable}>
-                {showLaunchable && launchable.map(serviceRow)}
+                {showLaunchable && renderServiceRows(launchable)}
               </div>
             </>
           )}
@@ -1198,6 +1228,17 @@ export default function ServicesPage({
                       >
                         <Pencil size={14} />
                         {t('编辑服务配置')}
+                      </button>
+                      <button
+                        className="text-button"
+                        aria-label={t('复制服务配置')}
+                        disabled={busy}
+                        onClick={() =>
+                          setEditing(duplicateServiceDefinition(view.definition, t(' 副本')))
+                        }
+                      >
+                        <Copy size={14} />
+                        {t('复制服务配置…')}
                       </button>
                       <button
                         className="text-button danger-text"

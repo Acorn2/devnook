@@ -2,6 +2,7 @@ import { dateLocale, t } from './i18n';
 import { relativeServiceDirectory, serviceIsActive } from './ServicePresentation';
 import { preferredHttpAddresses } from './BrowserPresentation';
 import type {
+  BrowserAddress,
   BrowserShortcut,
   BrowserTarget,
   PortBinding,
@@ -12,6 +13,7 @@ import type {
 
 export type MainDestination =
   | { kind: 'services' }
+  | { kind: 'ports' }
   | { kind: 'managed'; id: string; action: 'start' | 'restart' | null }
   | { kind: 'external'; pid: number };
 export interface MainNavigation {
@@ -124,6 +126,62 @@ export function trayEntryPorts(entry: TrayEntry) {
     .sort((a, b) => a - b)
     .map((port) => `:${port}`)
     .join(' · ');
+}
+
+function bindingEndpoint({ address, family, port }: PortBinding): string | null {
+  const host = address.replace(/^\[|\]$/g, '');
+  if (!host || port < 1 || port > 65535) return null;
+  if (host === '*') {
+    if (family === 'IPv4') return `127.0.0.1:${port}`;
+    if (family === 'IPv6') return `[::1]:${port}`;
+    return null;
+  }
+  if (host === '0.0.0.0') return `127.0.0.1:${port}`;
+  if (host === '::') return `[::1]:${port}`;
+  return host.includes(':') ? `[${host}]:${port}` : `${host}:${port}`;
+}
+
+export function trayCopyableEndpoint(entry: TrayEntry, browser?: BrowserAddress): string | null {
+  if (entry.unavailable) return null;
+  let webEndpoint: string | undefined;
+  if (browser?.web_ui === true) {
+    try {
+      const url = new URL(browser.url);
+      if (url.protocol === 'http:') webEndpoint = `${url.hostname}:${url.port || '80'}`;
+    } catch {
+      // A malformed URL provides no HTTP evidence.
+    }
+  }
+  const endpoints = new Map<string, string>();
+  for (const binding of [...entry.bindings].sort((a, b) => a.port - b.port)) {
+    const endpoint = bindingEndpoint(binding);
+    if (!endpoint) continue;
+    if (browser && binding.pid === browser.pid && endpoint === webEndpoint) {
+      endpoints.set(endpoint, browser.url);
+    } else if (!endpoints.has(endpoint)) {
+      endpoints.set(endpoint, endpoint);
+    }
+  }
+  return [...endpoints.values()].join(', ') || null;
+}
+
+export function traySummary(groups: TrayGroup[]): {
+  running: number;
+  attention: number;
+  external: number;
+} {
+  let running = 0;
+  let attention = 0;
+  let external = 0;
+  for (const group of groups) {
+    for (const entry of group.entries) {
+      if (entry.unavailable) continue;
+      if (entry.external) external++;
+      else if (needsAttention(entry.state)) attention++;
+      else if (serviceIsActive(entry.state)) running++;
+    }
+  }
+  return { running, attention, external };
 }
 
 export function trayEntryStatus(entry: TrayEntry) {

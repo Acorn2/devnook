@@ -38,6 +38,7 @@ export interface Settings {
   scan_depth: number;
   refresh_seconds: number;
   default_ide: string;
+  default_terminal: string;
   idea_path: string;
   vscode_path: string;
   cursor_path: string;
@@ -60,6 +61,7 @@ export interface DevelopmentApps {
   apps: DevelopmentApp[];
   project_defaults: Record<string, AppPreference>;
   global_default: AppPreference;
+  terminal_default?: AppPreference;
   warnings: string[];
 }
 export interface ScanProgress {
@@ -150,6 +152,7 @@ export const defaults: Settings = {
   scan_depth: 4,
   refresh_seconds: 2,
   default_ide: 'VSCODE',
+  default_terminal: 'TERMINAL',
   idea_path: '',
   vscode_path: '',
   cursor_path: '',
@@ -172,6 +175,7 @@ export const ideNames: Record<string, string> = {
   IDEA: 'IntelliJ IDEA',
   VSCODE: 'VS Code',
   CURSOR: 'Cursor',
+  TERMINAL: 'Terminal',
 };
 
 export type ServiceState =

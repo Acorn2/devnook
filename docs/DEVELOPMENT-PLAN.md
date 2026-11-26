@@ -1590,3 +1590,34 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - **全量测试与验证**：`pnpm check`（TypeScript）、`pnpm test:ui`（42 项前端测试全部通过）、`pnpm test`（Rust workspace 108 项测试全部通过）、`pnpm format:check`、`pnpm site:check`（98 项站点链接与清单检查全部通过）。
 - **文档与官网**：更新 `README.md`、`README.en.md`、`docs/releases/v0.1.9.md`、`docs/RELEASING.md` 与 `site/release.json`。
 
+## 核心精准度与轻量化优化（2026-11-26）
+
+- **进程组资源聚合**：`process::group_task_metrics` 支持排除 `worker_pid` 并在 `supervisor::reconcile` 中优先按 `pgid` 汇总托管进程组内所有工作进程的物理内存（RSS）与 CPU 累计时间，无组数据时再回退单 PID 查询；避免 `npm` / `pnpm` / `zsh` 壳进程导致子孙服务资源漏算。
+- **Runner 降写与稳态探活退避**：`service_worker` 仅在 `ServiceRun` 持久化快照实际变化时写入 SQLite，消除每 100ms 无条件刷盘与 WAL 写锁竞争；服务达到 `READY` 后健康探活间隔退避为 `interval_ms * 4`（上限 2000ms），减少稳态 `lsof` 子进程拉起。
+- **纯只读 UDS 请求并发放行**：`ipc::dispatch` 为本地 GUI/CLI 与 MCP 的纯只读方法跳过全局 `access_gate` 互斥锁，所有写操作、确认令牌、撤销与 MCP 范围授权请求仍维持严格串行边界，避免慢重启或外部切换阻塞界面刷新与日志读取。
+- **双栈 `localhost` 就绪检查**：`health::http_ready` 对 `localhost` 依次尝试 `127.0.0.1` 与 `[::1]`，解决现代开发服务器默认仅监听 IPv6 loopback 导致 HTTP 就绪超时的问题；显式 IP 字面量保持原行为。
+- **滚动保留最新日志与 ANSI 清理**：`LogSink` 达到 `log_limit_kb` 后改为原地压缩保留最新半窗输出与轮转标记（文件严格不超限，继续保持 `0o600`、`O_NOFOLLOW` 和单文件清理）；写入前及 `LOG_PHRASE` 匹配前剥离 ANSI CSI/OSC 转义序列，日志关键字查询扩大读取窗口至 2 MiB 并预计算小写查询词。
+- **前端细节与降噪**：端口管理顶部分类胶囊计数在快照未就绪或失败时统一显示 `—` 而非 `0`，切换胶囊时自动清除相互冲突的来源/项目子筛选；`App.tsx` 按项目路径/类型/默认应用和 IDE 设置计算 `appDiscoveryKey`，收藏、改名或改分类不再触发全量 macOS 应用重扫。
+- **实际验证**：TypeScript 类型检查（`tsc --noEmit`）、Prettier 格式检查、前端单测（42 passed / 0 failed）、Vite 生产构建、`cargo fmt --all -- --check`、`cargo check --workspace` 与全工作区 `cargo test --workspace`（112 passed / 0 failed / 5 ignored 内部 fixture）全部通过；新增覆盖进程组后代指标、滚动日志与 ANSI 剥离、IPv6 `localhost` HTTP 就绪检查及慢重启并发只读 IPC 响应的回归测试。未重打包 `.app` / DMG，未运行原生窗口人工点击验收，未提交或推送。
+
+## 偏好终端、日志排查与服务配置效率增强（2026-11-26）
+
+- **自定义偏好终端**：`ide.rs` 扩展识别 iTerm2、Warp、Ghostty、WezTerm、Alacritty、Kitty、Hyper、Tabby 与系统 Terminal，并复用 `.app` 元数据与可执行文件只读校验；`Settings` 新增向后兼容的 `default_terminal`（默认 `"TERMINAL"`，不改 SQLite v3 / UDS v10），`DevelopmentApps` 暴露 `terminal_default`。设置页新增「默认终端应用」选择器，支持选择已发现终端或手动 `.app`；项目打开菜单与 `open_project(target="TERMINAL")` 优先使用已配置的偏好终端，MCP 仍保持固定目标枚举不接受任意路径。
+- **日志排查增强**：`RunLogPanel` 新增输出流快捷筛选（`全部` / `stderr` 含计数 / `系统` 含计数）、上滑查看历史时右下角浮出「回到底部」按钮、以及关键字搜索行内 `<mark>` 高亮（纯文本切分，无 HTML 注入）；复制当前日志自动遵循激活的输出流与关键字过滤。
+- **服务配置复制与敏感环境变量自动分流**：服务详情「更多操作」新增「复制服务配置…」，打开编辑器预填名称（带副本后缀）与普通参数，清空 `id` / `revision` 且仅保留 Keychain 键名不复制旧密钥值；`ServiceEditor` 在普通环境变量区实时识别含敏感键名或凭据 URL 的条目，提供「移至 Keychain」一键迁移并合并到敏感变量列表，同时修正新建/复制服务时的 Keychain 占位提示。
+- **实际验证**：`tsc --noEmit`、Prettier 格式检查、前端单测（45 passed / 0 failed，含输出流分类/过滤/高亮、敏感环境变量分流、配置复制和全量中英翻译条目校验）、Vite 生产构建、`cargo fmt --all -- --check`、`cargo check --workspace` 与全工作区 `cargo test --workspace`（113 passed / 0 failed / 5 ignored 内部 fixture，含新增的 `preferred_terminal_setting_discovers_known_terminals_and_preserves_uninstalled_preference` 集成测试）全部通过。未重打包 `.app` / DMG，未人工验收真实原生窗口交互，未提交或推送。
+
+## 快捷栏与主界面 UI 精修（2026-11-26）
+
+- **菜单栏快捷面板精修**：`tray.rs` 新增 `Destination::Ports` 并将面板宽调整为 `356` 逻辑单位（保持 `80–520` 原生限界与同次展开锁高）；`TrayPanel` 新增 34px 摘要顶栏（品牌标记 + 运行中/需关注/外部胶囊 + 搜索开关与刷新按钮），单行抬升至 28px 舒适热区并支持点击端口胶囊复制本机地址，列表滚动边界改用渐隐遮罩，底部精简为「打开 DevNook」「端口管理」「退出 DevNook ⌘Q」。
+- **主界面头部瘦身与侧栏态势徽标**：移除顶栏装饰性 `LOCAL FIRST` 徽章、项目页英文副标、大段静态宣言和独立占高的统计横条，合并为紧凑单行标题与可点击统计胶囊（点击「监听中」直接切换端口监听筛选，点击「TCP 绑定」直达端口管理），释放约 120–150px 纵向工作区；侧边栏在「服务管理」旁实时透出运行中绿点计数或需关注红色计数，在「端口管理」旁展示项目服务监听数。
+- **服务列表按项目分组**：全局服务视图通过 `groupServicesByProject` 按项目轻量分组（带项目色点、计数与唯一项目收藏按钮），子行主标题直接突出服务名与相对目录，消除多服务项目在全局列表中重复堆叠项目名的问题；保留原有 `managedServiceIdentity` 契约与所有启停确认流程。
+- **实际验证**：`tsc --noEmit`、Prettier 格式检查、前端单测（47 passed / 0 failed，新增 `traySummary` / `trayCopyableEndpoint` 与 `groupServicesByProject` 测试，全量中英词典校验通过）、Vite 生产构建、`cargo fmt --all -- --check`、`cargo check --workspace` 与 `cargo test -p devnook-desktop`（4 passed / 0 failed）全部通过；未改动 Core / CLI 业务代码（承接前序 113 项全工作区通过）。未重打包 `.app` / DMG，未在真实原生窗口中人工点验，未提交或推送。
+
+## 提交前审查修复（2026-11-26）
+
+- **HTTP 就绪检查**按候选地址核验监听进程组，再发送请求。覆盖同端口异组的 IPv4 / IPv6 监听，以及通过显式 IPv4 URL 访问双栈通配监听。
+- **菜单栏端口复制**使用实际监听地址，通配地址转换为对应地址族的 loopback。同一地址、端口及 PID 有现成网页证据时，复制带协议的 URL。
+- **服务配置副本**按 Core 的 160 UTF-8 字节上限预留副本后缀，沿 Unicode 码点截断原名。回归覆盖中文和 emoji。
+- **实际验证**通过 `pnpm check`、`pnpm test:ui`（48 项）、`pnpm format:check`、`pnpm build`、`cargo fmt --all -- --check`、`pnpm check:rust`、`pnpm test`（114 项通过，5 项内部 fixture 按配置跳过）与 `pnpm tauri build --debug --no-bundle`。既有外部服务切换测试首轮失败一次，单跑及全量复跑通过。未人工点验原生窗口。
+

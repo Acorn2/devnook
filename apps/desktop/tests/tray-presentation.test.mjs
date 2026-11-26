@@ -23,6 +23,8 @@ const { initializeLanguage } = await import(await moduleUrl('i18n'));
 const {
   trayGroups,
   trayEntryPorts,
+  trayCopyableEndpoint,
+  traySummary,
   trayEntryStatus,
   reconcileTrayGroups,
   filterTrayGroups,
@@ -42,6 +44,8 @@ const service = (id, state, projectId = 'p') => ({
 });
 const port = (overrides = {}) => ({
   pid: 10,
+  address: '127.0.0.1',
+  family: 'IPv4',
   port: 4321,
   project_id: 'p',
   service_id: null,
@@ -266,4 +270,49 @@ test('an existing session translates fallback labels immediately while preservin
   assert.equal(filterTrayGroups(groups, 'external').length, 1);
   initializeLanguage('zh');
   assert.equal(filterTrayGroups(groups, '')[0].entries[0].name, '外部服务');
+});
+
+test('traySummary counts active managed, attention, and external entries while ignoring unavailable slots', () => {
+  const groups = reconcileTrayGroups(
+    null,
+    trayGroups(
+      [project('p', true)],
+      [service('ok', 'READY'), service('bad', 'CRASHED'), service('idle', 'STOPPED')],
+      [port({ pid: 99, port: 4321 })],
+    ),
+  );
+  assert.deepEqual(traySummary(groups), { running: 1, attention: 1, external: 1 });
+  const gone = reconcileTrayGroups(groups, []);
+  assert.deepEqual(traySummary(gone), { running: 0, attention: 0, external: 0 });
+});
+
+test('tray copies actual TCP addresses and attaches HTTP only to the confirmed endpoint', () => {
+  const ipv6 = port({ address: '[::1]', family: 'IPv6', port: 5432 });
+  const entry = trayGroups([project('p')], [], [ipv6])[0].entries[0];
+  const ipv4 = port({ address: '192.168.1.10', port: 5173 });
+  const browser = {
+    url: 'http://[::1]:5432/',
+    pid: ipv6.pid,
+    fingerprint: 'identity',
+    access_url: 'http://localhost:5432/',
+    web_ui: true,
+  };
+  assert.equal(trayCopyableEndpoint(entry), '[::1]:5432');
+  assert.equal(trayCopyableEndpoint(entry, browser), 'http://[::1]:5432/');
+  assert.equal(trayCopyableEndpoint(entry, { ...browser, pid: 99 }), '[::1]:5432');
+  assert.equal(
+    trayCopyableEndpoint(entry, { ...browser, url: 'http://127.0.0.1:5432/' }),
+    '[::1]:5432',
+  );
+  assert.equal(trayCopyableEndpoint(entry, { ...browser, web_ui: false }), '[::1]:5432');
+  assert.equal(
+    trayCopyableEndpoint({ ...entry, bindings: [ipv6, ipv4, { ...ipv6, address: '*' }] }, browser),
+    '192.168.1.10:5173, http://[::1]:5432/',
+  );
+  assert.equal(
+    trayCopyableEndpoint({ ...entry, bindings: [port({ address: '*' })] }),
+    '127.0.0.1:4321',
+  );
+  assert.equal(trayCopyableEndpoint({ ...entry, bindings: [] }), null);
+  assert.equal(trayCopyableEndpoint({ ...entry, unavailable: true }, browser), null);
 });

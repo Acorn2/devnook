@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Activity, LoaderCircle, Play, Plus, ShieldCheck, X } from 'lucide-react';
 import { call } from './api';
 import { Modal } from './components';
 import { t } from './i18n';
 import Select from './Select';
+import { splitSensitiveEnvLines } from './ServicePresentation';
 import type { Project, ReadinessKind, ServiceDefinition, ServiceView } from './types';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -50,6 +51,23 @@ export default function ServiceEditor({
   const [secrets, setSecrets] = useState(initial.secret_keys.map((key) => ({ key, value: '' })));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const sensitiveEnv = useMemo(() => splitSensitiveEnvLines(env), [env]);
+  function moveSensitiveToKeychain() {
+    if (!sensitiveEnv.sensitiveEntries.length) return;
+    setEnv(sensitiveEnv.plainLines.join('\n'));
+    setSecrets((current) => {
+      const next = current.filter((row) => row.key.trim() || row.value);
+      for (const entry of sensitiveEnv.sensitiveEntries) {
+        const existing = next.findIndex((row) => row.key.trim() === entry.key);
+        if (existing >= 0) {
+          next[existing] = { key: entry.key, value: entry.value };
+        } else {
+          next.push({ key: entry.key, value: entry.value });
+        }
+      }
+      return next;
+    });
+  }
   const form = (
     <form
       onInvalidCapture={(event) => {
@@ -239,6 +257,24 @@ export default function ServiceEditor({
                 onChange={(e) => setEnv(e.target.value)}
               />
             </label>
+            {sensitiveEnv.sensitiveEntries.length > 0 && (
+              <div className="sensitive-env-notice" role="status">
+                <span>
+                  {t('检测到 {{0}} 个敏感变量（{{1}}），请移入 Keychain 保存。', [
+                    sensitiveEnv.sensitiveEntries.length,
+                    sensitiveEnv.sensitiveEntries.map((entry) => entry.key).join(', '),
+                  ])}
+                </span>
+                <button
+                  type="button"
+                  className="button secondary small"
+                  onClick={moveSensitiveToKeychain}
+                >
+                  <ShieldCheck size={13} />
+                  {t('移至 Keychain')}
+                </button>
+              </div>
+            )}
             <div className="secret-heading">
               <span>{t('Keychain 敏感环境变量')}</span>
               <button
@@ -266,7 +302,7 @@ export default function ServiceEditor({
                   aria-label={t('敏感变量值 ') + (i + 1)}
                   autoComplete="new-password"
                   placeholder={
-                    initial.secret_keys.includes(row.key)
+                    Boolean(initial.id) && initial.secret_keys.includes(row.key)
                       ? t('留空保留已有 Keychain 值')
                       : t('输入要存入 Keychain 的值')
                   }

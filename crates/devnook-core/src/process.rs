@@ -116,12 +116,21 @@ pub fn parse_ports(text: &str) -> Vec<PortBinding> {
 }
 
 pub fn list_ports() -> Result<Vec<PortBinding>, String> {
+    list_tcp_listeners("-iTCP")
+}
+
+pub(crate) fn listeners_on_port(port: u16, ipv4_only: bool) -> Result<Vec<PortBinding>, String> {
+    let family = if ipv4_only { "4" } else { "" };
+    list_tcp_listeners(&format!("-i{family}TCP:{port}"))
+}
+
+fn list_tcp_listeners(selector: &str) -> Result<Vec<PortBinding>, String> {
     if !cfg!(target_os = "macos") {
         return Err("端口发现目前仅支持 macOS".into());
     }
     Ok(parse_ports(&command(
         "/usr/sbin/lsof",
-        &["-nP", "-iTCP", "-sTCP:LISTEN", "-Fpcftn"],
+        &["-nP", selector, "-sTCP:LISTEN", "-Fpcftn"],
     )?))
 }
 
@@ -371,22 +380,23 @@ pub fn task_metrics(pid: u32) -> Option<(u64, u64)> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn group_task_metrics(pgid: u32) -> (Option<u64>, Option<u64>) {
+pub fn group_task_metrics(pgid: u32, exclude_pid: Option<u32>) -> (Option<u64>, Option<u64>) {
     if let Ok(members) = group_members(pgid) {
-        if !members.is_empty() {
-            let mut total_mem = 0u64;
-            let mut total_cpu = 0u64;
-            let mut found = false;
-            for pid in members {
-                if let Some((mem, cpu)) = task_metrics(pid) {
-                    total_mem = total_mem.saturating_add(mem);
-                    total_cpu = total_cpu.saturating_add(cpu);
-                    found = true;
-                }
+        let mut total_mem = 0u64;
+        let mut total_cpu = 0u64;
+        let mut found = false;
+        for pid in members {
+            if exclude_pid == Some(pid) {
+                continue;
             }
-            if found {
-                return (Some(total_mem), Some(total_cpu));
+            if let Some((mem, cpu)) = task_metrics(pid) {
+                total_mem = total_mem.saturating_add(mem);
+                total_cpu = total_cpu.saturating_add(cpu);
+                found = true;
             }
+        }
+        if found {
+            return (Some(total_mem), Some(total_cpu));
         }
     }
     (None, None)
@@ -398,7 +408,7 @@ pub fn task_metrics(_pid: u32) -> Option<(u64, u64)> {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn group_task_metrics(_pgid: u32) -> (Option<u64>, Option<u64>) {
+pub fn group_task_metrics(_pgid: u32, _exclude_pid: Option<u32>) -> (Option<u64>, Option<u64>) {
     (None, None)
 }
 

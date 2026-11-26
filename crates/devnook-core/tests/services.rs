@@ -688,9 +688,10 @@ fn fixture_runtime() {
     if let Ok(secret) = std::env::var("API_TOKEN") {
         println!("echo: {secret}");
     }
-    let listener = std::env::var("FIXTURE_PORT")
-        .ok()
-        .map(|p| TcpListener::bind(("127.0.0.1", p.parse::<u16>().unwrap())).unwrap());
+    let listener = std::env::var("FIXTURE_PORT").ok().map(|p| {
+        let host = std::env::var("FIXTURE_HOST").unwrap_or_else(|_| "127.0.0.1".into());
+        TcpListener::bind((host.as_str(), p.parse::<u16>().unwrap())).unwrap()
+    });
     if let Some(listener) = &listener {
         listener.set_nonblocking(true).unwrap();
     }
@@ -728,7 +729,10 @@ fn node_http_start_restart_logs_and_managed_attribution() {
         .unwrap()
         .to_string_lossy()
         .into();
-    d.args=vec!["-e".into(),"require('node:http').createServer((req,res)=>{res.writeHead(200);res.end('ok')}).listen(Number(process.env.FIXTURE_PORT),'127.0.0.1');console.log('NODE_READY');console.error('NODE_STDERR');".into()];
+    d.args = vec![
+        "-e".into(),
+        "require('node:http').createServer((req,res)=>{res.writeHead(200);res.end('ok')}).listen({port:Number(process.env.FIXTURE_PORT),host:'::',ipv6Only:false});console.log('NODE_READY');console.error('NODE_STDERR');".into(),
+    ];
     d.environment
         .insert("FIXTURE_PORT".into(), port.to_string());
     d.readiness.kind = ReadinessKind::Http;
@@ -756,6 +760,7 @@ fn node_http_start_restart_logs_and_managed_attribution() {
         .find(|p| p.port == port)
         .unwrap();
     assert_eq!(binding.source, "DEVNOOK");
+    assert_eq!(binding.family, "IPv6");
     assert_eq!(
         binding.process_kind,
         devnook_core::model::ProcessKind::Service
@@ -952,6 +957,17 @@ fn descendants_survive_launcher_exit_and_normal_stop_cleans_the_group() {
     // Process readiness precedes the runtime's child marker on slower startup paths.
     let pid: u32 = wait(|| fs::read_to_string(&file).ok()?.parse().ok());
     assert!(process::identity(pid).unwrap().alive);
+    // Even after the direct launcher PID exits, process-group metrics still report the descendant.
+    let metrics = wait(|| {
+        h.core
+            .services()
+            .ok()?
+            .into_iter()
+            .find(|v| v.definition.id == d.id)?
+            .current_run
+            .filter(|r| r.memory_rss_bytes.is_some_and(|mem| mem > 0))
+    });
+    assert!(metrics.memory_rss_bytes.unwrap() > 0);
     h.stopped(&d.id);
     assert!(!process::identity(pid).is_some_and(|p| p.alive));
     // STOPPED is written by the runner before its final audit and process exit.
@@ -1061,6 +1077,14 @@ fn credentials_are_refs_logs_are_bounded_and_history_can_be_cleaned() {
     });
     assert!(run.log_truncated);
     assert!(fs::metadata(&r.log_path).unwrap().len() <= 64 * 1024 + 256);
+    let latest_logs = wait(|| {
+        let page = h.core.service_logs(&r.id, 100, "FIXTURE_READY").ok()?;
+        (!page.lines.is_empty()).then_some(page)
+    });
+    assert!(latest_logs
+        .lines
+        .iter()
+        .any(|line| line.contains("FIXTURE_READY")));
     h.stopped(&flood.id);
     let mut plain = h.definition("bad-secret", "worker");
     plain.environment.insert("API_TOKEN".into(), fake.into());
@@ -1152,6 +1176,50 @@ fn http_health_downgrades_after_readiness_is_lost() {
     fs::remove_file(bad).unwrap();
     h.state(&d.id, ServiceState::Ready);
     h.stopped(&d.id);
+}
+
+#[test]
+fn localhost_http_health_only_probes_the_requested_process_group() {
+    let h = Harness::new();
+    let port = free_port();
+    let bad = h.temp.path().join("health-bad");
+    fs::write(&bad, "bad").unwrap();
+    let serve = |host, bad_file: &Path| {
+        ChildGuard(
+            Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "fixture_runtime", "--ignored", "--nocapture"])
+                .env("FIXTURE_MODE", "worker")
+                .env("FIXTURE_HOST", host)
+                .env("FIXTURE_PORT", port.to_string())
+                .env("HEALTH_BAD_FILE", bad_file)
+                .process_group(0)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        )
+    };
+    let ipv4 = serve("127.0.0.1", &bad);
+    let ipv6 = serve("::1", &h.temp.path().join("missing"));
+    let ipv4_group = ipv4.0.id();
+    let ipv6_group = ipv6.0.id();
+    wait(|| {
+        let bindings = process::list_ports().ok()?;
+        [ipv4_group, ipv6_group]
+            .into_iter()
+            .all(|pid| bindings.iter().any(|b| b.pid == pid && b.port == port))
+            .then_some(())
+    });
+
+    let mut definition = h.definition("dual-stack-health", "worker");
+    definition.readiness.kind = ReadinessKind::Http;
+    for host in ["localhost", "[::1]"] {
+        definition.readiness.url = format!("http://{host}:{port}/health");
+        let ipv4_ready = health::ready(&definition, ipv4_group, Duration::ZERO, false);
+        let ipv6_ready = health::ready(&definition, ipv6_group, Duration::ZERO, false);
+        assert!(!ipv4_ready, "{host} accepted an unrelated response");
+        assert!(ipv6_ready, "{host} did not accept its own IPv6 response");
+    }
 }
 
 #[test]
@@ -1298,6 +1366,59 @@ fn uds_clients_share_core_and_runner_survives_client_and_core_exit() {
             .filter(|r| r.state == ServiceState::Stopped)
     });
     let _: serde_json::Value = client3.invoke("shutdown", serde_json::json!({})).unwrap();
+}
+
+#[test]
+fn read_only_uds_queries_remain_responsive_during_slow_restart() {
+    let h = Harness::new();
+    let mut stubborn = h.definition("slow-restart", "ignore_term");
+    stubborn.stop_grace_seconds = 1;
+    let stubborn = h.save(stubborn);
+    let _daemon = daemon(h.temp.path());
+    let client = CoreClient::with_launcher(h.temp.path(), launcher()).unwrap();
+    let preview = client
+        .prepare_service_action(&stubborn.id, "start")
+        .unwrap();
+    let run = client.confirm_service_action(&preview.token).unwrap();
+    wait(|| {
+        client
+            .service_history(&stubborn.id)
+            .ok()?
+            .into_iter()
+            .next()
+            .filter(|r| r.state == ServiceState::Ready)
+    });
+    let restart = client
+        .prepare_service_action(&stubborn.id, "restart")
+        .unwrap();
+    let dir = h.temp.path().to_path_buf();
+    let token = restart.token.clone();
+    let restart_thread = std::thread::spawn(move || {
+        let writer = CoreClient::with_launcher(&dir, launcher()).unwrap();
+        writer.confirm_service_action(&token)
+    });
+    std::thread::sleep(Duration::from_millis(200));
+    let started = Instant::now();
+    let services = client.services().unwrap();
+    let elapsed = started.elapsed();
+    assert_eq!(services.len(), 1);
+    assert!(
+        elapsed < Duration::from_secs(1),
+        "read-only list_services blocked for {elapsed:?} during slow restart"
+    );
+    assert!(restart_thread.join().unwrap().is_err());
+    unsafe {
+        libc::kill(-(run.pgid.unwrap() as i32), libc::SIGKILL);
+    }
+    wait(|| {
+        client
+            .service_history(&stubborn.id)
+            .ok()?
+            .into_iter()
+            .next()
+            .filter(|r| !r.state.active())
+    });
+    let _: serde_json::Value = client.invoke("shutdown", serde_json::json!({})).unwrap();
 }
 
 fn group(h: &Harness, ids: Vec<String>) -> devnook_core::workspace::WorkspaceGroup {

@@ -306,3 +306,42 @@ fn discovery_checks_real_bundles_recommendations_and_legacy_overrides() {
         .all(|app| Path::new(&app.path).join("Contents/Info.plist").is_file()));
     assert!(!temp.path().join("SHOULD_NOT_EXECUTE").exists());
 }
+
+#[test]
+#[cfg(target_os = "macos")]
+fn preferred_terminal_setting_discovers_known_terminals_and_preserves_uninstalled_preference() {
+    let temp = TempDir::new().unwrap();
+    let ghostty = bundle(temp.path(), "Ghostty.app", "com.mitchellh.ghostty");
+    let database = temp.path().join("registry.db");
+    let core = Core::new(&database).unwrap();
+    let inspected = core
+        .inspect_development_app(ghostty.to_str().unwrap())
+        .unwrap();
+    assert_eq!(inspected.kind, "TERMINAL");
+    assert_eq!(inspected.name, "Ghostty");
+    // Legacy settings without default_terminal remain compatible and default to TERMINAL.
+    assert_eq!(core.settings().unwrap().default_terminal, "TERMINAL");
+    assert!(core
+        .save_settings(Settings {
+            default_terminal: "TERMINAL;touch bad".into(),
+            ..Settings::default()
+        })
+        .is_err());
+    core.save_settings(Settings {
+        default_terminal: inspected.id.clone(),
+        ..Settings::default()
+    })
+    .unwrap();
+    let catalog = core.development_apps().unwrap();
+    let terminal_default = catalog.terminal_default.unwrap();
+    assert!(terminal_default.available);
+    assert_eq!(terminal_default.id, inspected.id);
+    assert_eq!(terminal_default.name, "Ghostty");
+    // Uninstalling the chosen terminal marks it unavailable without losing the saved setting.
+    fs::rename(&ghostty, temp.path().join("RemovedGhostty.app")).unwrap();
+    let catalog = core.development_apps().unwrap();
+    let terminal_default = catalog.terminal_default.unwrap();
+    assert!(!terminal_default.available);
+    assert_eq!(core.settings().unwrap().default_terminal, inspected.id);
+    assert!(!temp.path().join("SHOULD_NOT_EXECUTE").exists());
+}

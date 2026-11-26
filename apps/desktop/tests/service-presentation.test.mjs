@@ -29,6 +29,13 @@ const {
   formatMemoryBytes,
   formatCpuTime,
   formatLogTimestamp,
+  classifyLogStream,
+  filterLogLines,
+  highlightTextParts,
+  isSensitiveEnvKey,
+  splitSensitiveEnvLines,
+  groupServicesByProject,
+  duplicateServiceDefinition,
   groupServiceDrafts,
   pendingServiceDrafts,
 } = await import(
@@ -286,4 +293,128 @@ test('formatLogTimestamp formats unix seconds to readable local HH:mm:ss without
 
   const plainLine = 'Some raw line without timestamp';
   assert.equal(formatLogTimestamp(plainLine), plainLine);
+});
+
+test('log stream classification, filtering, and keyword highlighting work safely without regex injection', () => {
+  const lines = [
+    '[1795187637] [system] 服务运行开始',
+    '[1795187638] [stdout] listening on http://127.0.0.1:3000 [stderr] literal text',
+    '[1795187639] [stderr] Error: EADDRINUSE (port 3000)',
+  ];
+  assert.equal(classifyLogStream(lines[0]), 'system');
+  assert.equal(classifyLogStream(lines[1]), 'stdout');
+  assert.equal(classifyLogStream(lines[2]), 'stderr');
+  assert.deepEqual(filterLogLines(lines, 'ALL'), lines);
+  assert.deepEqual(filterLogLines(lines, 'STDERR'), [lines[2]]);
+  assert.deepEqual(filterLogLines(lines, 'SYSTEM'), [lines[0]]);
+  assert.deepEqual(highlightTextParts('Error: EADDRINUSE (port 3000)', '(port 3000)'), [
+    { text: 'Error: EADDRINUSE ', match: false },
+    { text: '(port 3000)', match: true },
+  ]);
+  assert.deepEqual(highlightTextParts('Hello World hello', 'HELLO'), [
+    { text: 'Hello', match: true },
+    { text: ' World ', match: false },
+    { text: 'hello', match: true },
+  ]);
+});
+
+test('splitSensitiveEnvLines separates sensitive keys and credential URLs while keeping plain and malformed lines', () => {
+  assert.equal(isSensitiveEnvKey('OPENAI_API_KEY'), true);
+  assert.equal(isSensitiveEnvKey('DB_PASSWORD'), true);
+  assert.equal(isSensitiveEnvKey('SIGNING_KEY'), true);
+  assert.equal(isSensitiveEnvKey('NODE_ENV'), false);
+  const split = splitSensitiveEnvLines(
+    [
+      'NODE_ENV=development',
+      'API_TOKEN=secret-123',
+      'DATABASE_URL=postgres://user:pass@localhost:5432/app',
+      'PORT=8080',
+      'MALFORMED_LINE',
+    ].join('\n'),
+  );
+  assert.deepEqual(split.plainLines, ['NODE_ENV=development', 'PORT=8080', 'MALFORMED_LINE']);
+  assert.deepEqual(split.sensitiveEntries, [
+    { key: 'API_TOKEN', value: 'secret-123' },
+    { key: 'DATABASE_URL', value: 'postgres://user:pass@localhost:5432/app' },
+  ]);
+});
+
+test('duplicateServiceDefinition clears identity and revision while cloning fields and keeping secret key names only', () => {
+  const original = {
+    id: 'svc-1',
+    project_id: 'proj-1',
+    name: 'backend',
+    runtime_type: 'NODE',
+    executable: 'pnpm',
+    args: ['dev'],
+    shell_mode: false,
+    working_directory: '/Projects/workbench/api',
+    environment: { NODE_ENV: 'development' },
+    secret_keys: ['API_TOKEN'],
+    expected_ports: [8080],
+    dependencies: ['db-1'],
+    readiness: {
+      kind: 'PORT',
+      port: 8080,
+      url: '',
+      phrase: '',
+      timeout_seconds: 30,
+      interval_ms: 500,
+      grace_ms: 500,
+    },
+    stop_grace_seconds: 5,
+    log_limit_kb: 1024,
+    revision: 'rev-1',
+    created_at: 100,
+    updated_at: 200,
+  };
+  const copy = duplicateServiceDefinition(original, ' 副本');
+  assert.equal(copy.id, '');
+  assert.equal(copy.revision, '');
+  assert.equal(copy.name, 'backend 副本');
+  assert.equal(copy.created_at, 0);
+  assert.equal(copy.updated_at, 0);
+  assert.deepEqual(copy.secret_keys, ['API_TOKEN']);
+  copy.args.push('--port');
+  copy.environment.PORT = '9000';
+  copy.expected_ports.push(9000);
+  assert.deepEqual(original.args, ['dev']);
+  assert.deepEqual(original.environment, { NODE_ENV: 'development' });
+  assert.deepEqual(original.expected_ports, [8080]);
+  const longCopy = duplicateServiceDefinition({ ...original, name: 'x'.repeat(160) }, ' Copy');
+  assert.equal(longCopy.name.length, 160);
+  const chineseCopy = duplicateServiceDefinition(
+    { ...original, name: '服'.repeat(53) + 'A' },
+    ' 副本',
+  );
+  assert.equal(chineseCopy.name, '服'.repeat(51) + ' 副本');
+  assert.equal(Buffer.byteLength(chineseCopy.name), 160);
+  const emojiCopy = duplicateServiceDefinition({ ...original, name: '😊'.repeat(40) }, ' 副本');
+  assert.equal(emojiCopy.name, '😊'.repeat(38) + ' 副本');
+});
+
+test('groupServicesByProject preserves first-seen project order and groups sibling services together', () => {
+  const items = [
+    { definition: { id: 's1', project_id: 'p1', name: 'frontend' }, current_run: null },
+    { definition: { id: 's2', project_id: 'p2', name: 'api' }, current_run: null },
+    { definition: { id: 's3', project_id: 'p1', name: 'backend' }, current_run: null },
+    { definition: { id: 's4', project_id: 'missing', name: 'orphan' }, current_run: null },
+  ];
+  const groups = groupServicesByProject(items, [
+    { id: 'p1', name: 'Meridian Shop', is_favorite: true },
+    { id: 'p2', name: 'Notes API', is_favorite: false },
+  ]);
+  assert.deepEqual(
+    groups.map((g) => ({
+      id: g.projectId,
+      name: g.projectName,
+      favorite: g.favorite,
+      names: g.services.map((s) => s.definition.name),
+    })),
+    [
+      { id: 'p1', name: 'Meridian Shop', favorite: true, names: ['frontend', 'backend'] },
+      { id: 'p2', name: 'Notes API', favorite: false, names: ['api'] },
+      { id: 'missing', name: '已移除的项目', favorite: false, names: ['orphan'] },
+    ],
+  );
 });

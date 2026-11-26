@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ChevronDown,
-  ChevronUp,
+  Check,
   CircleAlert,
   Globe,
   LoaderCircle,
+  Network,
   Play,
   Square,
   RefreshCw,
   RotateCw,
   Search,
+  SquareTerminal,
   X,
 } from 'lucide-react';
 import { call, native } from './api';
@@ -20,9 +21,11 @@ import {
   filterTrayGroups,
   reconcileTrayGroups,
   trayBrowserShortcut,
+  trayCopyableEndpoint,
   trayEntryPorts,
   trayEntryStatus,
   trayGroups,
+  traySummary,
   type MainDestination,
   type TrayEntry,
   type TrayGroup,
@@ -40,6 +43,7 @@ const message = (error: unknown) => (error instanceof Error ? error.message : St
 export default function TrayPanel() {
   useLanguage();
   const visible = useWindowVisible();
+  const header = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const footer = useRef<HTMLElement>(null);
@@ -56,6 +60,7 @@ export default function TrayPanel() {
   const [error, setError] = useState('');
   const [portError, setPortError] = useState('');
   const [actionError, setActionError] = useState('');
+  const [copiedKey, setCopiedKey] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [reload, setReload] = useState(0);
   const [busy, setBusy] = useState('');
@@ -186,7 +191,8 @@ export default function TrayPanel() {
         updateScrollHints();
         if (heightLocked.current) return;
         const height = Math.ceil(
-          (content.current?.getBoundingClientRect().height || 0) +
+          (header.current?.getBoundingClientRect().height || 0) +
+            (content.current?.getBoundingClientRect().height || 0) +
             (footer.current?.getBoundingClientRect().height || 0) +
             (toolbar.current?.getBoundingClientRect().height || 0),
         );
@@ -199,7 +205,7 @@ export default function TrayPanel() {
       });
     };
     const observer = new ResizeObserver(measure);
-    [content.current, footer.current, scroll.current, toolbar.current].forEach(
+    [header.current, content.current, footer.current, scroll.current, toolbar.current].forEach(
       (element) => element && observer.observe(element),
     );
     measure();
@@ -260,12 +266,97 @@ export default function TrayPanel() {
       setBusy('');
     }
   }
-  const groups = filterTrayGroups(session?.groups || [], query);
+  async function copyPort(entryKey: string, endpoint: string) {
+    try {
+      if (!navigator.clipboard) throw new Error(t('无法访问剪贴板，请手动选择文字复制。'));
+      await navigator.clipboard.writeText(endpoint);
+      setCopiedKey(entryKey);
+      setTimeout(() => {
+        setCopiedKey((current) => (current === entryKey ? '' : current));
+      }, 1500);
+    } catch (error) {
+      report(error);
+    }
+  }
+  const allGroups = session?.groups || [];
+  const summary = traySummary(allGroups);
+  const groups = filterTrayGroups(allGroups, query);
   const disabled = !!busy || !dataReady || !visible;
   const retry = () => setReload((value) => value + 1);
 
   return (
     <main className="tray-panel" aria-label={t('DevNook 快捷面板')}>
+      <header className="tray-header" ref={header}>
+        <div className="tray-brand">
+          <img
+            src="/devnook.svg"
+            width={16}
+            height={16}
+            alt=""
+            draggable={false}
+            className="tray-brand-mark"
+          />
+          <strong>DevNook</strong>
+          <div className="tray-summary-pills" role="status">
+            {summary.attention > 0 && (
+              <span className="tray-pill tray-pill-danger">
+                {t('{{0}} 需关注', [summary.attention])}
+              </span>
+            )}
+            {summary.running > 0 && (
+              <span className="tray-pill tray-pill-success">
+                {t('{{0}} 运行中', [summary.running])}
+              </span>
+            )}
+            {summary.external > 0 && (
+              <span className="tray-pill tray-pill-cyan">
+                {t('{{0}} 外部', [summary.external])}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="tray-header-actions">
+          <button
+            type="button"
+            className={`tray-icon ${showSearch ? 'active' : ''}`}
+            disabled={!native || !dataReady}
+            aria-label={t('搜索项目、服务或端口')}
+            aria-pressed={showSearch}
+            title={t('搜索项目、服务或端口') + ' (⌘F)'}
+            onClick={() => {
+              if (showSearch && !session?.autoSearch) {
+                setQuery('');
+                setSearchRequested(false);
+              } else {
+                setSearchRequested(true);
+                requestAnimationFrame(() => search.current?.focus());
+              }
+            }}
+          >
+            <Search size={13} />
+          </button>
+          <button
+            type="button"
+            className="tray-icon"
+            disabled={!native || refreshing || !!busy}
+            onClick={retry}
+            aria-label={t('刷新')}
+            title={
+              snapshot
+                ? t('更新于 {{0}}', [
+                    snapshot.time.toLocaleTimeString(dateLocale(), {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    }),
+                  ])
+                : t('刷新')
+            }
+          >
+            <RefreshCw size={13} className={refreshing ? 'spin' : ''} />
+          </button>
+        </div>
+      </header>
       {showSearch && (
         <div className="tray-search" ref={toolbar}>
           <Search size={12} aria-hidden="true" />
@@ -293,12 +384,11 @@ export default function TrayPanel() {
           )}
         </div>
       )}
-      <div className="tray-scroll-region">
-        {scrollHints.above && (
-          <span className="tray-scroll-cue cue-top" aria-hidden="true">
-            <ChevronUp size={12} />
-          </span>
-        )}
+      <div
+        className="tray-scroll-region"
+        data-scroll-top={scrollHints.above || undefined}
+        data-scroll-bottom={scrollHints.below || undefined}
+      >
         <div className="tray-content" ref={scroll} onScroll={updateScrollHints}>
           <div className="tray-list" ref={content}>
             {!native ? (
@@ -327,7 +417,12 @@ export default function TrayPanel() {
                     data-color={projectColor(group.id)}
                     aria-label={group.name}
                   >
-                    {!group.compact && <h2 title={group.name}>{group.name}</h2>}
+                    {!group.compact && (
+                      <h2 title={group.name}>
+                        <span className="tray-group-dot" aria-hidden="true" />
+                        <span>{group.name}</span>
+                      </h2>
+                    )}
                     {group.entries.map((entry, index) => {
                       const unavailable = !!entry.unavailable;
                       const canRestart =
@@ -351,6 +446,7 @@ export default function TrayPanel() {
                               ? 'external'
                               : (entry.state || 'STOPPED').toLowerCase();
                       const ports = trayEntryPorts(entry);
+                      const copied = copiedKey === entry.key;
                       const name = group.compact && index === 0 ? group.name : entry.name;
                       const label = [group.name, entry.name, ports].filter(Boolean).join(' · ');
                       const fullStatus =
@@ -364,6 +460,9 @@ export default function TrayPanel() {
                       const browser = snapshot.portsAvailable
                         ? trayBrowserShortcut(entry, snapshot.shortcuts)
                         : undefined;
+                      const copyable = snapshot.portsAvailable
+                        ? trayCopyableEndpoint(entry, browser)
+                        : null;
                       const status =
                         !snapshot.portsAvailable && entry.external
                           ? t('待核验')
@@ -393,10 +492,30 @@ export default function TrayPanel() {
                               .join(' · ')}
                           >
                             <span className="tray-name-text">{name}</span>
-                            {ports && <code className="tray-port">{ports}</code>}
-                            <span className="tray-state">{status}</span>
+                            {status && <span className="tray-state">{status}</span>}
                             {!snapshot.portsAvailable && <span className="tray-state">?</span>}
                           </button>
+                          {ports && (
+                            <button
+                              type="button"
+                              className={`tray-port ${copied ? 'copied' : ''}`}
+                              disabled={!copyable || unavailable}
+                              title={
+                                copied
+                                  ? t('地址已复制')
+                                  : copyable
+                                    ? t('复制 {{0}}', [copyable])
+                                    : ports
+                              }
+                              aria-label={copyable ? t('复制 {{0}}', [copyable]) : ports}
+                              onClick={() => {
+                                if (copyable) void copyPort(entry.key, copyable);
+                              }}
+                            >
+                              {copied ? <Check size={10} /> : null}
+                              <span>{ports}</span>
+                            </button>
+                          )}
                           <div className="tray-service-actions">
                             {browser && (
                               <button
@@ -465,49 +584,38 @@ export default function TrayPanel() {
             )}
           </div>
         </div>
-        {scrollHints.below && (
-          <span className="tray-scroll-cue cue-bottom" aria-hidden="true">
-            <ChevronDown size={12} />
-          </span>
-        )}
       </div>
       <footer className="tray-footer" ref={footer}>
-        <div className="tray-footer-row">
+        {(actionError || portError) && (
+          <div className="tray-footer-alert" role="alert" title={t(actionError || portError)}>
+            <CircleAlert size={12} aria-hidden="true" />
+            <span>{actionError ? t(actionError) : t('监听状态不可用')}</span>
+          </div>
+        )}
+        <div className="tray-footer-nav">
           <button
             className="tray-menu-item"
             disabled={!native || !!busy}
             onClick={() => void navigate({ kind: 'services' })}
           >
-            {t('打开 DevNook')}
-          </button>
-          {(actionError || portError) && (
-            <span className="tray-footer-status" role="alert" title={t(actionError || portError)}>
-              <CircleAlert size={12} aria-hidden="true" />
-              <span>{actionError ? t(actionError) : t('监听状态不可用')}</span>
+            <span className="tray-menu-label">
+              <SquareTerminal size={13} aria-hidden="true" />
+              {t('打开 DevNook')}
             </span>
-          )}
+          </button>
           <button
-            className="tray-icon"
-            disabled={!native || refreshing || !!busy}
-            onClick={retry}
-            aria-label={t('刷新')}
-            title={
-              snapshot
-                ? t('更新于 {{0}}', [
-                    snapshot.time.toLocaleTimeString(dateLocale(), {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: false,
-                    }),
-                  ])
-                : t('刷新')
-            }
+            className="tray-menu-item"
+            disabled={!native || !!busy}
+            onClick={() => void navigate({ kind: 'ports' })}
           >
-            <RefreshCw size={13} className={refreshing ? 'spin' : ''} />
+            <span className="tray-menu-label">
+              <Network size={13} aria-hidden="true" />
+              {t('端口管理')}
+            </span>
           </button>
         </div>
         <button
-          className="tray-menu-item"
+          className="tray-menu-item tray-quit-item"
           disabled={!native || !!busy}
           title={t('退出应用后，已运行的服务将继续运行。')}
           onClick={() => void call('quit_desktop').catch(report)}

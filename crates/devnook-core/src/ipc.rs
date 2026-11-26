@@ -365,13 +365,56 @@ fn param<T: DeserializeOwned>(request: &Request, key: &str) -> Result<T, String>
 fn value<T: Serialize>(value: Result<T, String>) -> Result<Value, String> {
     serde_json::to_value(value?).map_err(|_| "响应编码失败".into())
 }
+fn is_concurrent_read_only(origin: &str, method: &str) -> bool {
+    match origin {
+        "GUI" | "CLI" => matches!(
+            method,
+            "ping"
+                | "list_projects"
+                | "get_settings"
+                | "list_development_apps"
+                | "inspect_development_app"
+                | "list_services"
+                | "service_drafts"
+                | "external_service_configuration"
+                | "parse_service_command"
+                | "list_ports"
+                | "inspect_process"
+                | "service_history"
+                | "service_logs"
+                | "list_workspaces"
+                | "workspace_history"
+                | "scan_status"
+                | "agent_grants"
+                | "access_audits"
+        ),
+        "MCP" => matches!(
+            method,
+            "ping"
+                | "list_projects"
+                | "list_services"
+                | "list_ports"
+                | "inspect_process"
+                | "service_history"
+                | "service_logs"
+                | "list_workspaces"
+                | "workspace_history"
+        ),
+        _ => false,
+    }
+}
 fn dispatch(core: &Arc<Core>, request: Request, shutdown: &AtomicBool) -> Result<Value, String> {
     if request.version != VERSION {
         return Err("Core 协议版本不一致，请关闭旧版本后台 Core 后重试".into());
     }
-    // Local GUI/CLI and MCP writes share one authorization boundary. Context comes from
-    // the adapter, never from MCP tool arguments. The private UDS is a same-user boundary.
-    let _gate = core.access_gate.lock().map_err(|_| "授权锁异常")?;
+    // Local GUI/CLI and MCP writes share one authorization boundary. Pure read-only queries
+    // that neither check nor mutate agent grants/confirmations bypass the global write gate
+    // so slow restarts or handoffs do not stall UI refreshes or log reads.
+    let _gate = if is_concurrent_read_only(&request.context.origin, &request.method) {
+        None
+    } else {
+        Some(core.access_gate.lock().map_err(|_| "授权锁异常")?)
+    };
     let client = match core.authorize(&request.context, &request.method, &request.params) {
         Ok(client) => client,
         Err(error) => {

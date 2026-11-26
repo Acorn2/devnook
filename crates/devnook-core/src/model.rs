@@ -55,11 +55,17 @@ pub struct ProjectEdit {
     pub category: String,
 }
 
+fn default_terminal() -> String {
+    "TERMINAL".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub scan_depth: usize,
     pub refresh_seconds: u64,
     pub default_ide: String,
+    #[serde(default = "default_terminal")]
+    pub default_terminal: String,
     pub idea_path: String,
     pub vscode_path: String,
     pub cursor_path: String,
@@ -71,6 +77,7 @@ impl Default for Settings {
             scan_depth: 4,
             refresh_seconds: 2,
             default_ide: "VSCODE".into(),
+            default_terminal: default_terminal(),
             idea_path: String::new(),
             vscode_path: String::new(),
             cursor_path: String::new(),

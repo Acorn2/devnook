@@ -186,3 +186,150 @@ export function formatLogTimestamp(line: string): string {
   const ss = String(d.getSeconds()).padStart(2, '0');
   return `[${hh}:${mm}:${ss}]${match[2]}`;
 }
+
+export type LogStream = 'stdout' | 'stderr' | 'system';
+export type LogStreamFilter = 'ALL' | 'STDERR' | 'SYSTEM';
+
+export function classifyLogStream(line: string): LogStream {
+  const tagged = line.match(/^\[[^\]]+\]\s+\[(stdout|stderr|system)\]/);
+  if (tagged) return tagged[1] as LogStream;
+  if (line.includes('[stderr]')) return 'stderr';
+  if (line.includes('[system]')) return 'system';
+  return 'stdout';
+}
+
+export function filterLogLines(lines: string[], stream: LogStreamFilter): string[] {
+  if (stream === 'ALL') return lines;
+  const wanted = stream === 'STDERR' ? 'stderr' : 'system';
+  return lines.filter((line) => classifyLogStream(line) === wanted);
+}
+
+export function highlightTextParts(
+  text: string,
+  query: string,
+): { text: string; match: boolean }[] {
+  const needle = query.trim();
+  if (!needle) return [{ text, match: false }];
+  const lowerText = text.toLowerCase();
+  const lowerNeedle = needle.toLowerCase();
+  const parts: { text: string; match: boolean }[] = [];
+  let cursor = 0;
+  while (cursor < text.length) {
+    const found = lowerText.indexOf(lowerNeedle, cursor);
+    if (found < 0) {
+      parts.push({ text: text.slice(cursor), match: false });
+      break;
+    }
+    if (found > cursor) {
+      parts.push({ text: text.slice(cursor, found), match: false });
+    }
+    parts.push({ text: text.slice(found, found + needle.length), match: true });
+    cursor = found + needle.length;
+  }
+  return parts.length ? parts : [{ text, match: false }];
+}
+
+const SENSITIVE_KEY_PARTS = [
+  'TOKEN',
+  'PASSWORD',
+  'PASSWD',
+  'SECRET',
+  'API_KEY',
+  'PRIVATE_KEY',
+  'AUTHORIZATION',
+  'AUTH',
+  'COOKIE',
+  'ACCESS_KEY',
+  'CREDENTIAL',
+];
+
+export function isSensitiveEnvKey(key: string): boolean {
+  const upper = key.trim().toUpperCase();
+  if (!upper) return false;
+  return SENSITIVE_KEY_PARTS.some((part) => upper.includes(part)) || upper.endsWith('_KEY');
+}
+
+export function splitSensitiveEnvLines(envText: string): {
+  plainLines: string[];
+  sensitiveEntries: { key: string; value: string }[];
+} {
+  const plainLines: string[] = [];
+  const sensitiveEntries: { key: string; value: string }[] = [];
+  for (const rawLine of envText.split('\n')) {
+    if (!rawLine.trim()) continue;
+    const split = rawLine.indexOf('=');
+    if (split < 1) {
+      plainLines.push(rawLine);
+      continue;
+    }
+    const key = rawLine.slice(0, split).trim();
+    const value = rawLine.slice(split + 1);
+    const hasCredentialUrl = value.includes('://') && value.includes('@');
+    if (isSensitiveEnvKey(key) || hasCredentialUrl) {
+      sensitiveEntries.push({ key, value });
+    } else {
+      plainLines.push(rawLine);
+    }
+  }
+  return { plainLines, sensitiveEntries };
+}
+
+export interface ServiceProjectGroup {
+  projectId: string;
+  projectName: string;
+  favorite: boolean;
+  services: ServiceView[];
+}
+
+export function groupServicesByProject(
+  items: ServiceView[],
+  projects: Pick<Project, 'id' | 'name' | 'is_favorite'>[],
+): ServiceProjectGroup[] {
+  const byId = new Map(projects.map((p) => [p.id, p]));
+  const groups = new Map<string, ServiceProjectGroup>();
+  for (const item of items) {
+    const id = item.definition.project_id;
+    let group = groups.get(id);
+    if (!group) {
+      const project = byId.get(id);
+      group = {
+        projectId: id,
+        projectName: project?.name || t('已移除的项目'),
+        favorite: !!project?.is_favorite,
+        services: [],
+      };
+      groups.set(id, group);
+    }
+    group.services.push(item);
+  }
+  return [...groups.values()];
+}
+
+export function duplicateServiceDefinition(
+  definition: ServiceDefinition,
+  suffix: string,
+): ServiceDefinition {
+  const utf8 = new TextEncoder();
+  let remaining = 160 - utf8.encode(suffix).length;
+  let baseName = '';
+  for (const character of definition.name.trim()) {
+    const length = utf8.encode(character).length;
+    if (length > remaining) break;
+    baseName += character;
+    remaining -= length;
+  }
+  return {
+    ...definition,
+    id: '',
+    revision: '',
+    name: baseName.trimEnd() + suffix,
+    args: [...definition.args],
+    environment: { ...definition.environment },
+    secret_keys: [...definition.secret_keys],
+    expected_ports: [...definition.expected_ports],
+    dependencies: [...definition.dependencies],
+    readiness: { ...definition.readiness },
+    created_at: 0,
+    updated_at: 0,
+  };
+}

@@ -11,7 +11,6 @@ import {
   FolderOpen,
   FolderSearch,
   Grid2X2,
-  HardDrive,
   LayoutList,
   LoaderCircle,
   Monitor,
@@ -41,13 +40,13 @@ import WorkspacesPage from './WorkspacesPage';
 import AdvancedIntegrations from './AgentsPage';
 import Select from './Select';
 import { filterPortBindings, portRows, runtimeOptions } from './PortPresentation';
-import { formatCpuTime, formatMemoryBytes } from './ServicePresentation';
+import { formatCpuTime, formatMemoryBytes, serviceIsActive } from './ServicePresentation';
 import ProcessCommand from './ProcessCommand';
 import CategoryPicker from './CategoryPicker';
 import { ProjectBatchBar, ProjectCheckbox } from './ProjectSelection';
 import { useProjectPresentation } from './ProjectPresentation';
 import ScanModal from './ScanModal';
-import OpenWith, { AppSelect, appName } from './OpenWith';
+import OpenWith, { AppSelect, TerminalSelect, appName } from './OpenWith';
 import { open as chooseApplication } from '@tauri-apps/plugin-dialog';
 import { CopyButton, EmptyState, Modal, ProjectGlyph, Tags } from './components';
 import { projectColor } from './ColorLabels';
@@ -59,6 +58,7 @@ import {
   type PortBinding,
   type ProcessDetail,
   type Project,
+  type ServiceView,
   type Settings,
   type StopPreview,
 } from './types';
@@ -85,6 +85,10 @@ export default function App() {
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [ports, setPorts] = useState<PortBinding[]>([]);
+  const [serviceSummary, setServiceSummary] = useState<{
+    running: number;
+    attention: number;
+  } | null>(null);
   const [settings, setSettings] = useState<Settings>(defaults);
   const [appCatalog, setAppCatalog] = useState<DevelopmentApps | null>(null);
   const [appsLoading, setAppsLoading] = useState(false);
@@ -150,16 +154,22 @@ export default function App() {
       void subscription.then((unlisten) => unlisten());
     };
   }, []);
-  useEffect(() => {
-    if (!mainNavigation || batchBusy || actionBusy || scanOpen || editing || removing) return;
-    setPage('services');
-    setServicesView('services');
-    setServiceProjectId('');
-    endBatch();
-  }, [mainNavigation, batchBusy, actionBusy, scanOpen, editing, removing]);
   const navigationHandled = useCallback((sequence: number) => {
     setMainNavigation((request) => (request?.sequence === sequence ? null : request));
   }, []);
+  useEffect(() => {
+    if (!mainNavigation || batchBusy || actionBusy || scanOpen || editing || removing) return;
+    endBatch();
+    if (mainNavigation.destination.kind === 'ports') {
+      setPage('ports');
+      setPortFocus(null);
+      navigationHandled(mainNavigation.sequence);
+      return;
+    }
+    setPage('services');
+    setServicesView('services');
+    setServiceProjectId('');
+  }, [mainNavigation, navigationHandled, batchBusy, actionBusy, scanOpen, editing, removing]);
 
   useEffect(() => setSearchCollapsedCategories([]), [query]);
 
@@ -214,9 +224,23 @@ export default function App() {
       if (request === appRequest.current) setAppsLoading(false);
     }
   }, []);
+  const appDiscoveryKey = useMemo(
+    () =>
+      JSON.stringify({
+        projects: projects.map((p) => [p.id, p.canonical_path, p.project_type, p.default_ide]),
+        settings: [
+          settings.default_ide,
+          settings.default_terminal,
+          settings.idea_path,
+          settings.vscode_path,
+          settings.cursor_path,
+        ],
+      }),
+    [projects, settings],
+  );
   useEffect(() => {
     if (coreReady) void refreshApps();
-  }, [coreReady, projects, settings, refreshApps]);
+  }, [coreReady, appDiscoveryKey, refreshApps]);
   async function chooseApp(): Promise<DevelopmentApp | null> {
     try {
       const path = await chooseApplication({
@@ -257,12 +281,25 @@ export default function App() {
         do {
           refreshAgain.current = false;
           try {
-            const values = await call<PortBinding[]>('list_ports');
+            const [values, serviceViews] = await Promise.all([
+              call<PortBinding[]>('list_ports'),
+              call<ServiceView[]>('list_services').catch(() => null),
+            ]);
             // A post-import / assignment request must not be satisfied by an older snapshot.
             if (!refreshAgain.current) {
               setPorts(values);
               setLastRefresh(new Date());
               setPortError('');
+              if (serviceViews) {
+                let running = 0;
+                let attention = 0;
+                for (const item of serviceViews) {
+                  const state = item.current_run?.state;
+                  if (state && ['BLOCKED', 'CRASHED', 'UNKNOWN'].includes(state)) attention++;
+                  else if (serviceIsActive(state)) running++;
+                }
+                setServiceSummary({ running, attention });
+              }
             }
           } catch (e) {
             setPortError(errorText(e));
@@ -299,6 +336,10 @@ export default function App() {
   }, [batchBusy]);
 
   const servicePorts = useMemo(() => ports.filter((p) => p.process_kind === 'SERVICE'), [ports]);
+  const projectServicePortCount = useMemo(
+    () => new Set(servicePorts.filter((p) => p.project_id).map((p) => `${p.pid}:${p.port}`)).size,
+    [servicePorts],
+  );
   const activeIds = useMemo(
     () => new Set(servicePorts.map((p) => p.project_id).filter(Boolean)),
     [servicePorts],
@@ -395,7 +436,7 @@ export default function App() {
           target === 'FINDER'
             ? 'Finder'
             : target === 'TERMINAL'
-              ? 'Terminal'
+              ? appCatalog?.terminal_default?.name || 'Terminal'
               : appName(target, appCatalog?.apps || []),
         ]),
       );
@@ -620,6 +661,22 @@ export default function App() {
           >
             <SquareTerminal size={18} />
             <span>{t('服务管理')}</span>
+            {coreReady && serviceSummary && serviceSummary.attention > 0 ? (
+              <span
+                className="nav-badge nav-badge-danger"
+                title={t('{{0}} 个服务需要关注', [serviceSummary.attention])}
+              >
+                {serviceSummary.attention}
+              </span>
+            ) : coreReady && serviceSummary && serviceSummary.running > 0 ? (
+              <span
+                className="nav-badge nav-badge-success"
+                title={t('{{0}} 个托管服务运行中', [serviceSummary.running])}
+              >
+                <span className="nav-badge-dot" aria-hidden="true" />
+                {serviceSummary.running}
+              </span>
+            ) : null}
           </button>
           <button
             className={`nav-item ${page === 'ports' ? 'selected' : ''}`}
@@ -628,6 +685,9 @@ export default function App() {
           >
             <Network size={18} />
             <span>{t('端口管理')}</span>
+            {lastRefresh && projectServicePortCount > 0 && (
+              <span className="nav-count">{projectServicePortCount}</span>
+            )}
           </button>
         </nav>
         <div className="sidebar-bottom">
@@ -671,12 +731,6 @@ export default function App() {
           </div>
           <div className="topbar-right">
             <AppearanceToggle appearance={appearance} change={changeAppearance} />
-            {page !== 'services' && page !== 'ports' && (
-              <span className="local-badge">
-                <HardDrive size={13} />
-                LOCAL FIRST
-              </span>
-            )}
             <button
               className="icon-button"
               aria-label={t('关于 DevNook')}
@@ -743,37 +797,70 @@ export default function App() {
             </div>
           )}
           {page !== 'services' && page !== 'ports' && (
-            <div className="page-heading">
-              <div>
-                <div className="eyebrow">
-                  {page === 'settings' ? 'MAKE IT YOURS' : 'A HOME FOR YOUR PROJECTS'}
-                </div>
-                <h1>
-                  {t(pageNames[page])}
-                  <span className="heading-dot">.</span>
-                </h1>
-                <p>
-                  {page === 'settings'
-                    ? t('让 DevNook 适应你的开发习惯。')
-                    : t('项目、编辑器与本机进程，一处掌握。')}
-                </p>
+            <div className={`page-heading ${page !== 'settings' ? 'page-heading-compact' : ''}`}>
+              <div className="page-heading-main">
+                <h1>{t(pageNames[page])}</h1>
+                {page === 'settings' ? (
+                  <p>{t('让 DevNook 适应你的开发习惯。')}</p>
+                ) : (
+                  !batchMode && (
+                    <div className="heading-stats" role="group" aria-label={t('工作台')}>
+                      <button
+                        type="button"
+                        className={`heading-stat-pill ${portStatus === 'ALL' ? 'active' : ''}`}
+                        title={t('显示全部项目')}
+                        onClick={() => setPortStatus('ALL')}
+                      >
+                        <Folder size={13} aria-hidden="true" />
+                        <span>{t('本地项目')}</span>
+                        <strong>{coreReady ? projects.length : '—'}</strong>
+                      </button>
+                      <button
+                        type="button"
+                        className={`heading-stat-pill ${portStatus === 'LISTENING' ? 'active' : ''}`}
+                        disabled={!lastRefresh}
+                        title={t('筛选正在监听的项目')}
+                        onClick={() =>
+                          setPortStatus((current) =>
+                            current === 'LISTENING' ? 'ALL' : 'LISTENING',
+                          )
+                        }
+                      >
+                        <Activity size={13} aria-hidden="true" />
+                        <span>{t('监听中')}</span>
+                        <strong>{lastRefresh ? activeIds.size : '—'}</strong>
+                      </button>
+                      <button
+                        type="button"
+                        className="heading-stat-pill"
+                        disabled={!coreReady}
+                        title={t('查看全部监听端口')}
+                        onClick={() => navigate('ports')}
+                      >
+                        <Network size={13} aria-hidden="true" />
+                        <span>{t('TCP 绑定')}</span>
+                        <strong>{lastRefresh ? ports.length : '—'}</strong>
+                      </button>
+                    </div>
+                  )
+                )}
               </div>
-              {!['settings', 'services'].includes(page) && (
+              {page !== 'settings' && (
                 <div className="heading-actions">
                   <button
-                    className={`button secondary ${refreshing ? 'loading' : ''}`}
+                    className={`button secondary small ${refreshing ? 'loading' : ''}`}
                     onClick={() => void refresh()}
                     disabled={!coreReady || refreshing}
                   >
-                    <RefreshCw size={15} className={refreshing ? 'spin' : ''} />
+                    <RefreshCw size={14} className={refreshing ? 'spin' : ''} />
                     {t('刷新')}
                   </button>
                   <button
-                    className="button primary"
+                    className="button primary small"
                     onClick={() => setScanOpen(true)}
                     disabled={!coreReady || batchBusy}
                   >
-                    <Plus size={17} />
+                    <Plus size={15} />
                     {t('扫描项目')}
                   </button>
                 </div>
@@ -850,44 +937,6 @@ export default function App() {
             </section>
           ) : (
             <>
-              <div
-                className="stats-strip"
-                hidden={page === 'ports' || (batchMode && (page === 'all' || page === 'favorites'))}
-              >
-                <div>
-                  <span className="stat-icon">
-                    <Folder size={17} />
-                  </span>
-                  <span>
-                    {t('本地项目')}
-                    <strong>{coreReady ? projects.length.toString().padStart(2, '0') : '—'}</strong>
-                  </span>
-                </div>
-                <div>
-                  <span className="stat-icon green">
-                    <Activity size={17} />
-                  </span>
-                  <span>
-                    {t('检测到服务监听')}
-                    <strong>
-                      {lastRefresh ? activeIds.size.toString().padStart(2, '0') : '—'}
-                    </strong>
-                  </span>
-                </div>
-                <div>
-                  <span className="stat-icon">
-                    <Network size={17} />
-                  </span>
-                  <span>
-                    {t('TCP 监听绑定')}
-                    <strong>{lastRefresh ? ports.length.toString().padStart(2, '0') : '—'}</strong>
-                  </span>
-                </div>
-                <div className="stats-caption">
-                  <ShieldCheck size={15} />
-                  <span>{t('本地数据 · 归属可核验')}</span>
-                </div>
-              </div>
               {portError && (
                 <div className="error-banner" role="alert">
                   <span>
@@ -1196,15 +1245,14 @@ export default function App() {
                       renderProjects(filtered)
                     )}
                   </div>
-                  <footer className="workspace-footer">
-                    <span role="status">
-                      <span className="status-dot inactive" />
-                      {presentationStorageError
-                        ? t('展示选择已生效，但无法记住；重开后可能恢复默认。')
-                        : t('你的项目始终属于你。')}
-                    </span>
-                    <span>{t('不上传源码，不改变项目。')}</span>
-                  </footer>
+                  {presentationStorageError && (
+                    <footer className="workspace-footer">
+                      <span role="status">
+                        <span className="status-dot inactive" />
+                        {t('展示选择已生效，但无法记住；重开后可能恢复默认。')}
+                      </span>
+                    </footer>
+                  )}
                 </section>
               )}
             </>
@@ -1540,6 +1588,19 @@ function PortsPage({
   const total = allRows.length;
   const advancedCount = [runtime, kind, source].filter((v) => v !== 'ALL').length;
   const hasSnapshot = !disabled && !snapshotError && lastRefresh !== null;
+  function selectScope(next: 'ALL' | 'MANAGED' | 'PROJECT' | 'SYSTEM') {
+    setScopeFilter(next);
+    if (next === 'MANAGED') {
+      if (source === 'OBSERVED') setSource('ALL');
+      if (projectFilter === 'EXTERNAL') setProjectFilter('ALL');
+    } else if (next === 'PROJECT') {
+      if (source === 'DEVNOOK') setSource('ALL');
+      if (projectFilter === 'EXTERNAL') setProjectFilter('ALL');
+    } else if (next === 'SYSTEM') {
+      if (source === 'DEVNOOK') setSource('ALL');
+      if (projectFilter !== 'ALL' && projectFilter !== 'EXTERNAL') setProjectFilter('ALL');
+    }
+  }
   return (
     <section className="ports-section">
       <header className="ports-header">
@@ -1586,36 +1647,36 @@ function PortsPage({
           role="tab"
           aria-selected={scopeFilter === 'ALL'}
           className={`port-scope-tab ${scopeFilter === 'ALL' ? 'active' : ''}`}
-          onClick={() => setScopeFilter('ALL')}
+          onClick={() => selectScope('ALL')}
         >
-          {t('全部')} <span className="tab-count">{total}</span>
+          {t('全部')} <span className="tab-count">{hasSnapshot ? total : '—'}</span>
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={scopeFilter === 'MANAGED'}
           className={`port-scope-tab ${scopeFilter === 'MANAGED' ? 'active' : ''}`}
-          onClick={() => setScopeFilter('MANAGED')}
+          onClick={() => selectScope('MANAGED')}
         >
-          {t('DevNook 托管')} <span className="tab-count">{managedCount}</span>
+          {t('DevNook 托管')} <span className="tab-count">{hasSnapshot ? managedCount : '—'}</span>
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={scopeFilter === 'PROJECT'}
           className={`port-scope-tab ${scopeFilter === 'PROJECT' ? 'active' : ''}`}
-          onClick={() => setScopeFilter('PROJECT')}
+          onClick={() => selectScope('PROJECT')}
         >
-          {t('项目关联')} <span className="tab-count">{projectCount}</span>
+          {t('项目关联')} <span className="tab-count">{hasSnapshot ? projectCount : '—'}</span>
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={scopeFilter === 'SYSTEM'}
           className={`port-scope-tab ${scopeFilter === 'SYSTEM' ? 'active' : ''}`}
-          onClick={() => setScopeFilter('SYSTEM')}
+          onClick={() => selectScope('SYSTEM')}
         >
-          {t('系统与未关联')} <span className="tab-count">{systemCount}</span>
+          {t('系统与未关联')} <span className="tab-count">{hasSnapshot ? systemCount : '—'}</span>
         </button>
       </div>
       <div className="ports-toolbar">
@@ -2199,6 +2260,27 @@ function SettingsPage({
               preference={catalog?.global_default}
               apps={catalog?.apps || []}
               onChange={(default_ide) => setEdit({ ...edit, default_ide })}
+              choose={chooseApp}
+              refresh={refreshApps}
+              busy={appsLoading}
+              disabled={disabled || busy}
+            />
+          </div>
+          <div className="setting-row">
+            <label htmlFor="default-terminal">
+              {t('默认终端应用')}
+              <span>
+                {t(
+                  '项目卡片与编辑弹窗中的“在终端打开”将优先使用此终端（支持 Ghostty、Warp、iTerm2 等）。',
+                )}
+              </span>
+            </label>
+            <TerminalSelect
+              id="default-terminal"
+              value={edit.default_terminal || 'TERMINAL'}
+              preference={catalog?.terminal_default}
+              apps={catalog?.apps || []}
+              onChange={(default_terminal) => setEdit({ ...edit, default_terminal })}
               choose={chooseApp}
               refresh={refreshApps}
               busy={appsLoading}

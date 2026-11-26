@@ -244,6 +244,7 @@ pub fn remember_app(db: &Connection, app: &crate::ide::DevelopmentApp) -> Result
 
 pub fn save_settings(db: &Connection, value: &Settings) -> Result<(), String> {
     validate_ide(&value.default_ide)?;
+    crate::ide::validate_terminal(&value.default_terminal)?;
     if !(1..=12).contains(&value.scan_depth) || !(2..=60).contains(&value.refresh_seconds) {
         return Err("扫描深度应为 1–12，刷新间隔应为 2–60 秒".into());
     }

@@ -214,7 +214,15 @@ pub fn reconcile(mut run: ServiceRun) -> ServiceRun {
         return run;
     }
     if anchor_valid(&run) {
-        if let Some((mem, cpu)) = run.pid.or(run.worker_pid).and_then(process::task_metrics) {
+        let (mem, cpu) = run
+            .pgid
+            .map(|pgid| process::group_task_metrics(pgid, run.worker_pid))
+            .unwrap_or((None, None));
+        if mem.is_some() || cpu.is_some() {
+            run.memory_rss_bytes = mem;
+            run.cpu_time_ms = cpu;
+        } else if let Some((mem, cpu)) = run.pid.or(run.worker_pid).and_then(process::task_metrics)
+        {
             run.memory_rss_bytes = Some(mem);
             run.cpu_time_ms = Some(cpu);
         }

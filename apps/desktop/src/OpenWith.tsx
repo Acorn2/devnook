@@ -114,6 +114,93 @@ export function AppSelect({
   );
 }
 
+export function TerminalSelect({
+  value,
+  preference,
+  apps,
+  onChange,
+  choose,
+  refresh,
+  busy,
+  disabled,
+  id,
+}: {
+  value: string;
+  preference?: AppPreference;
+  apps: DevelopmentApp[];
+  onChange: (target: string) => void;
+  choose: () => Promise<DevelopmentApp | null>;
+  refresh: () => Promise<void>;
+  busy: boolean;
+  disabled: boolean;
+  id?: string;
+}) {
+  const terminals = apps.filter((app) => app.kind === 'TERMINAL');
+  const selectedCustom = apps.find((app) => app.id === value && app.kind !== 'TERMINAL');
+  const listed = selectedCustom ? [...terminals, selectedCustom] : terminals;
+  const resolved =
+    value === 'TERMINAL'
+      ? 'TERMINAL'
+      : listed.find((app) => app.id === value)?.id ||
+        (preference?.available && listed.some((app) => app.id === preference.id)
+          ? preference.id
+          : value);
+  const options: { value: string; label: string; disabled?: boolean }[] = [
+    { value: 'TERMINAL', label: t('系统默认（Terminal）') },
+    ...listed.map((app) => ({
+      value: app.id,
+      label:
+        app.name +
+        (listed.filter((a) => a.name === app.name).length > 1
+          ? ` · ${app.version ? `${app.version} · ` : ''}${app.path}`
+          : ''),
+    })),
+  ];
+  if (!options.some((option) => option.value === resolved)) {
+    options.unshift({
+      value: resolved,
+      label: t('{{0}}（未找到）', [preference?.name || appName(value, apps)]),
+      disabled: true,
+    });
+  }
+  return (
+    <div className="app-select-field">
+      <Select
+        id={id}
+        aria-label={t('默认终端应用')}
+        value={resolved}
+        options={options}
+        onValueChange={onChange}
+        disabled={disabled || busy}
+      />
+      <div className="app-select-actions">
+        <button
+          type="button"
+          className="text-button"
+          disabled={disabled || busy}
+          onClick={() =>
+            void choose().then((app) => {
+              if (app) onChange(app.id);
+            })
+          }
+        >
+          <Plus size={14} />
+          {t('选择其他终端…')}
+        </button>
+        <button
+          type="button"
+          className="text-button"
+          disabled={disabled || busy}
+          onClick={() => void refresh()}
+        >
+          <RefreshCw size={14} className={busy ? 'spin' : ''} />
+          {t('刷新')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function OpenWith({
   project,
   catalog,
@@ -235,7 +322,13 @@ export default function OpenWith({
     ...recommended.filter((app) => app.id !== preference?.id),
     ...others.filter((app) => app.id !== preference?.id),
   ];
-  const terminal = apps.find((app) => app.kind === 'TERMINAL');
+  const terminalPreference = catalog?.terminal_default;
+  const terminalAvailable =
+    terminalPreference?.available || apps.some((app) => app.kind === 'TERMINAL');
+  const terminalLabel =
+    terminalPreference?.available && terminalPreference.name
+      ? t('在 {{0}} 中打开', [terminalPreference.name])
+      : t('在终端打开');
   function rows(items: DevelopmentApp[]) {
     return items.map((app) => (
       <div className="open-with-row" key={app.id} data-default={preference?.id === app.id}>
@@ -407,18 +500,18 @@ export default function OpenWith({
                 <FolderOpen size={16} />
                 {t('在 Finder 中显示')}
               </button>
-              {terminal && (
+              {terminalAvailable && (
                 <button
                   type="button"
                   className="open-with-action"
                   disabled={disabled}
                   onClick={() => {
                     close(true);
-                    void launch(project, terminal.id);
+                    void launch(project, 'TERMINAL');
                   }}
                 >
                   <SquareTerminal size={16} />
-                  {t('在终端打开')}
+                  {terminalLabel}
                 </button>
               )}
             </div>
