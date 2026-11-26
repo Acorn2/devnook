@@ -1,7 +1,10 @@
 //! Project services need entry-point evidence, not just a project cwd. Tool parents
 //! never taint their children; every listening PID is classified independently.
-use crate::{model::ProcessKind, service_drafts::parse_command};
-use std::path::{Component, Path, PathBuf};
+use crate::{model::ProcessKind, scanner::plain_file, service_drafts::parse_command};
+use std::{
+    fs,
+    path::{Component, Path, PathBuf},
+};
 
 fn normalized(path: &Path) -> Option<PathBuf> {
     let mut result = PathBuf::new();
@@ -129,6 +132,9 @@ fn tool_executable(executable: &str) -> bool {
 fn server_entry(entry: &str) -> bool {
     let path = entry.replace('\\', "/");
     // Match the launched package entry, never arguments mentioning these names.
+    if Path::new(&path).ends_with("node_modules/.bin/vite") {
+        return true;
+    }
     [
         "/vite/bin/vite",
         "/next/dist/bin/next",
@@ -144,6 +150,38 @@ fn server_entry(entry: &str) -> bool {
     ]
     .iter()
     .any(|marker| path.contains(marker))
+}
+
+fn python_project_module(module: &str, cwd: Option<&str>, roots: &[&Path]) -> bool {
+    let Some(cwd) = cwd.filter(|cwd| owned(cwd, None, roots)) else {
+        return false;
+    };
+    let mut path = PathBuf::from(cwd);
+    let mut parts = module.split('.').peekable();
+    while let Some(part) = parts.next() {
+        let mut bytes = part.bytes();
+        if !bytes
+            .next()
+            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
+            || !bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return false;
+        }
+        path.push(part);
+        let metadata = fs::symlink_metadata(&path);
+        if metadata.as_ref().is_ok_and(|m| m.is_symlink()) {
+            return false;
+        }
+        let directory = metadata.is_ok_and(|m| m.is_dir());
+        if parts.peek().is_none() {
+            return (directory && plain_file(&path.join("__main__.py")))
+                || plain_file(&path.with_extension("py"));
+        }
+        if !directory {
+            return false;
+        }
+    }
+    false
 }
 
 fn script_entry<'a>(args: &'a [String], value_options: &[&str]) -> Option<&'a str> {
@@ -334,6 +372,7 @@ pub(crate) fn classify(
                         if ["uvicorn", "gunicorn", "hypercorn", "daphne", "http.server"]
                             .contains(&module.as_str())
                             || (module == "flask" && args[index + 2..].iter().any(|a| a == "run"))
+                            || python_project_module(module, cwd, roots)
                         {
                             return Service;
                         }
@@ -546,6 +585,11 @@ mod tests {
         for (exe, command) in [
             ("/bin/node", "node -e 'listen()' --filename server.js"),
             ("/bin/node", "node /global/tool.js /work/app/server.js"),
+            (
+                "/bin/node",
+                "node /global/tool.js /work/app/node_modules/.bin/vite",
+            ),
+            ("/bin/node", "node /work/app/node_modules/.bin/vite-debug"),
             ("/bin/node", "node ../../outside/server.js"),
             ("/bin/python3", "python3 -c 'listen()' server.py"),
             ("/bin/python3", "python3 /global/tool.py --module uvicorn"),
@@ -603,5 +647,36 @@ mod tests {
         json.as_object_mut().unwrap().remove("process_kind");
         let old: crate::model::PortBinding = serde_json::from_value(json).unwrap();
         assert_eq!(old.process_kind, ProcessKind::Unknown);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn local_python_module_requires_a_project_entry_and_excludes_tools_and_links() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path().join("project");
+        fs::create_dir_all(root.join("api")).unwrap();
+        fs::write(root.join("api/server.py"), "").unwrap();
+        fs::write(root.join("debugpy.py"), "").unwrap();
+        fs::write(temp.path().join("outside.py"), "").unwrap();
+        std::os::unix::fs::symlink(temp.path().join("outside.py"), root.join("linked.py")).unwrap();
+        std::os::unix::fs::symlink(temp.path(), root.join("external")).unwrap();
+        let cwd = root.to_str().unwrap();
+        let classify_command =
+            |command: &str| classify(Some("/bin/python3"), command, Some(cwd), &[&root]);
+        assert_eq!(
+            classify_command("python3 -m api.server"),
+            ProcessKind::Service
+        );
+        assert_eq!(
+            classify_command("python3 -m debugpy"),
+            ProcessKind::DevelopmentTool
+        );
+        for entry in ["api.missing", "linked", "external.outside", "../outside"] {
+            assert_eq!(
+                classify_command(&format!("python3 -m {entry}")),
+                ProcessKind::Unknown,
+                "{entry}"
+            );
+        }
     }
 }

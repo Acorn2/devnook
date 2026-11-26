@@ -1621,3 +1621,16 @@ Phase 0–2 历史记录保留。当前范围与使用方法见 [PHASE-3.md](PHA
 - **服务配置副本**按 Core 的 160 UTF-8 字节上限预留副本后缀，沿 Unicode 码点截断原名。回归覆盖中文和 emoji。
 - **实际验证**通过 `pnpm check`、`pnpm test:ui`（48 项）、`pnpm format:check`、`pnpm build`、`cargo fmt --all -- --check`、`pnpm check:rust`、`pnpm test`（114 项通过，5 项内部 fixture 按配置跳过）与 `pnpm tauri build --debug --no-bundle`。既有外部服务切换测试首轮失败一次，单跑及全量复跑通过。未人工点验原生窗口。
 
+## 项目服务监听漏识别修复（2026-11-26）
+
+- 现场端口快照中，`wechat-mp-kit` 的 8765 以及 `wechat-research-hub` 的 5231、5233 已关联项目，但入口被归为未知。Core 新增对实际入口 `node_modules/.bin/vite` 的识别，并在项目内核验 Python `-m` 命令对应的本地模块文件或包入口。Python 核验只读文件元数据，逐段排除符号链接。
+- 在临时项目库使用修复后的 Core 读取 macOS 快照，三个现有端口均归为对应项目的外部服务。新增真实监听回归及开发工具、伪入口、符号链接排除用例。
+- 通过 Rust 格式检查、`pnpm check:rust`、`pnpm test`（116 项通过，5 项内部 fixture 按配置跳过）、`pnpm test:ui`（48 项）和 `pnpm tauri build --debug --no-bundle`。
+- 本机切换使用固定路径 `target/latest/debug/bundle/macos/DevNook.app`，ad-hoc 签名、Info.plist 检查和隔离目录中的包内 Core 启停均通过。通过旧 Core 正常停止两个托管服务，核对进程组退出与端口释放后正常退出旧 Core，再在新版 Core 按原配置版本恢复，两个服务均为 `READY`，实际监听分别为 4318 和 4371。
+- 切换后核对三个原外部监听的 PID 与项目归属。原生「全部项目」中 `wechat-mp-kit` 显示 1 个服务监听进程，`wechat-research-hub` 从 1 个增至 3 个。全局「监听中」项目数从 7 增至 8。
+
+## v0.1.10 双架构发行校验（2026-11-26）
+
+- Apple Silicon 和 Intel 安装包均以 Release 模式构建，采用 ad-hoc 签名，Mach-O 和 Info.plist 最低系统版本均为 macOS 12.0。两份 DMG 通过镜像和 SHA-256 校验。只读挂载后核对包内文件与签名，并在临时目录正常启动和退出包内 Core。Intel 检查在 Apple Silicon 主机上通过 Rosetta 执行。
+- 两架构分别通过 116 项 `cargo test --release --workspace --locked` 测试，各有 5 个内部 fixture 按配置跳过。前端 48 项测试、TypeScript、Prettier、Rust 格式检查和中英文站点构建检查通过。
+

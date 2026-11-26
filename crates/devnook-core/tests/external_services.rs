@@ -12,7 +12,7 @@ use tempfile::TempDir;
 struct Fixture(Child);
 impl Drop for Fixture {
     fn drop(&mut self) {
-        // Only this test's own fixture; its SIGTERM handler closes both listeners.
+        // Only signal the child spawned by the test.
         unsafe {
             libc::kill(self.0.id() as i32, libc::SIGTERM);
         }
@@ -24,6 +24,79 @@ impl Drop for Fixture {
             let _ = self.0.kill();
         }
         let _ = self.0.wait();
+    }
+}
+
+#[test]
+fn vite_bin_and_local_python_module_are_visible_as_project_services() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path().canonicalize().unwrap().join("project");
+    fs::create_dir_all(root.join("node_modules/.bin")).unwrap();
+    fs::create_dir_all(root.join("node_modules/vite/bin")).unwrap();
+    fs::write(
+        root.join("package.json"),
+        r#"{"scripts":{"dev":"vite"},"devDependencies":{"vite":"*"} }"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("node_modules/vite/bin/vite.js"),
+        "require('node:net').createServer().listen(0, '127.0.0.1');",
+    )
+    .unwrap();
+    let vite_path = root.join("node_modules/.bin/vite");
+    std::os::unix::fs::symlink("../vite/bin/vite.js", &vite_path).unwrap();
+    fs::create_dir(root.join("project_api")).unwrap();
+    fs::write(root.join("project_api/__init__.py"), "").unwrap();
+    fs::write(
+        root.join("project_api/__main__.py"),
+        "import socket\nwith socket.socket() as listener:\n    listener.bind(('127.0.0.1', 0))\n    listener.listen()\n    listener.accept()\n",
+    )
+    .unwrap();
+
+    let core = Core::new(&temp.path().join("registry.db")).unwrap();
+    let scan = core.scan_start(root.to_string_lossy().into(), 0).unwrap();
+    let preview = wait(|| {
+        let p = core.scan_status(&scan).unwrap();
+        (p.status == "completed").then_some(p)
+    });
+    let projects = core
+        .import_projects(
+            &scan,
+            preview.candidates.iter().map(|c| c.id.clone()).collect(),
+        )
+        .unwrap();
+    let project_id = &projects[0].candidate.id;
+    let spawn = |program, args: &[&str]| {
+        Fixture(
+            Command::new(devnook_core::supervisor::resolve_program(program).unwrap())
+                .args(args)
+                .current_dir(&root)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        )
+    };
+    let vite = spawn("node", &[vite_path.to_str().unwrap()]);
+    let python = spawn("python3", &["-B", "-m", "project_api", "web"]);
+    let pids = [vite.0.id(), python.0.id()];
+    let bindings = wait(|| {
+        let bindings = core.ports().unwrap();
+        pids.iter()
+            .all(|pid| bindings.iter().any(|b| b.pid == *pid))
+            .then_some(bindings)
+    });
+    for binding in bindings.iter().filter(|b| pids.contains(&b.pid)) {
+        assert_eq!(
+            binding.process_kind,
+            ProcessKind::Service,
+            "{}",
+            binding.name
+        );
+        assert_eq!(binding.project_id.as_ref(), Some(project_id));
+        assert_eq!(binding.source, "OBSERVED");
+        assert!(binding.service_id.is_none());
     }
 }
 
